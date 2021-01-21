@@ -2,6 +2,9 @@
 # python server.py --prototxt MobileNetSSD_deploy.prototxt --model MobileNetSSD_deploy.caffemodel --montageW 2 --montageH 2
 
 # import the necessary packages
+import mysql.connector
+from mysql.connector import errorcode
+from connectmysql import *
 # from rasp4 import sendToDjango
 from imutils import build_montages
 from EAR_calculator import *
@@ -10,6 +13,7 @@ from matplotlib import style
 from datetime import datetime
 import datetime as dt
 import numpy as np
+import mysql
 import dlib
 import imagezmq
 import argparse
@@ -17,10 +21,27 @@ import imutils
 import cv2
 import time
 
-list_frame=[]
+# Connect to Mysql Server
+try:
+    cnx = mysql.connector.connect(
+        user='root', password='hao152903', database='ras')
+except mysql.connector.Error as err:
+    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
+        print("Something is wrong with your user name or password")
+    elif err.errno == errorcode.ER_BAD_DB_ERROR:
+        print("Database does not exist")
+    else:
+        print(err)
+else:
+    print('[INFO]Connecting to Mysql server.....')
 
+# initialize the dictionary which will contain  information regarding
+# when a device was last active, then store the last time the check
+# was made was now
+lastActive = {}
 lastActiveCheck = datetime.now()
 
+# Predict and display
 ESTIMATED_NUM_PIS = 4
 ACTIVE_CHECK_PERIOD = 10
 ACTIVE_CHECK_SECONDS = ESTIMATED_NUM_PIS * ACTIVE_CHECK_PERIOD
@@ -55,10 +76,9 @@ predictor = dlib.shape_predictor(model_path)
 (mstart, mend) = face_utils.FACIAL_LANDMARKS_IDXS["mouth"]
 
 count_sleep = 0
-count_yawn = 0	
+count_yawn = 0
 imageHub = imagezmq.ImageHub()
 time.sleep(2)
-# print(type(imageHub))
 # initialize the ImageHub object
 
 # start looping over all the frames
@@ -66,9 +86,19 @@ while True:
     rpiName, frame = imageHub.recv_image()
     frame = imutils.resize(frame, width=400)
     # receive RPi name and frame from the RPi and acknowledge
+    # if a device is not in the last active dictionary then it means
+    # that its a newly connected device
+    # if rpiName not in lastActive.keys():
+    #     print("[INFO] receiving data from {}...".format(rpiName))
+
+    # record the last active time for the device from which we just
+    # received a frame
+    lastActive[rpiName] = datetime.now()
+
     # the receipt
     imageHub.send_reply(b'OK')
-    cv2.putText(frame, "PRESS 'q' TO EXIT", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
+    cv2.putText(frame, "PRESS 'q' TO EXIT", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
 
     # # Resize the frame
     frame = imutils.resize(frame, width=400)
@@ -77,7 +107,7 @@ while True:
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     # Detect faces
     rects = detector(frame, 1)
-     # Now loop over all the face detections and apply the predictor
+    # Now loop over all the face detections and apply the predictor
     if rects is not None:
         rect = get_max_area_rect(rects)
         if rect is not None:
@@ -116,9 +146,10 @@ while True:
                 cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
 
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                     # Add the frame to the dataset ar a proof of drowsy driving
-                    # sendToDjango("Con di me m")
-                    cv2.putText(frame, "DROWSINESS ALERT!", (270, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    # Add the frame to the dataset ar a proof of drowsy driving
+                    add_status('DROWSINESS ALERT', 'M01', 'X01', cnx)
+                    cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
                 FRAME_COUNT_EAR = 0
 
@@ -129,8 +160,10 @@ while True:
                 cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
 
                 if FRAME_COUNT_MAR >= 10:
-                    # sendToDjango("YOU R YAWNING")                 
-                    cv2.putText(frame, "YOU ARE YAWNING!", (270, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    # sendToDjango("YOU R YAWNING")
+                    add_status('YAWNING', 'M01', 'X01', cnx)
+                    cv2.putText(frame, "YOU ARE YAWNING!", (270, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
                 FRAME_COUNT_MAR = 0
         else:
@@ -138,18 +171,34 @@ while True:
 
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
                 # sendToDjango("EYES ON ROAD PLEASE")
-                cv2.putText(frame, "EYES ON ROAD PLEASE!!!", (270, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                cv2.putText(frame, "EYES ON ROAD PLEASE!!!", (270, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
                 FRAME_COUNT_DISTR = 0
-                    
-            # build a montage using images in the frame dictionary
-            # detect any kepresses
+
+        # build a montage using images in the frame dictionary
+        # detect any kepresses
         cv2.imshow("DEMO", frame)
-            # detect any kepresses
+        # detect any kepresses
         key = cv2.waitKey(1) & 0xFF
+
+        # if current time *minus* last time when the active device check
+        # was made is greater than the threshold set then do a check
+        if (datetime.now() - lastActiveCheck).seconds > ACTIVE_CHECK_SECONDS:
+            # loop over all previously active devices
+            for (rpiName, ts) in list(lastActive.items()):
+                # remove the RPi from the last active and frame
+                # dictionaries if the device hasn't been active recently
+                if (datetime.now() - ts).seconds > ACTIVE_CHECK_SECONDS:
+                    print("[INFO] lost connection to {}".format(rpiName))
+                    lastActive.pop(rpiName)
+
             # set the last active check time as current time
-            # if the `q` key was pressed, break from the loop
-        if key == ord("q"):
-            break
-    
+            lastActiveCheck = datetime.now()
+    # set the last active check time as current time
+    # if the `q` key was pressed, break from the loop
+    if key == ord("q"):
+        break
+
+# do a bit of cleanup
 cv2.destroyAllWindows()
