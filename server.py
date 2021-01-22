@@ -82,137 +82,130 @@ count_yawn = 0
 imageHub = imagezmq.ImageHub()
 time.sleep(2)
 while True:
-    rpiName='NoData'
-    frame=np.random.randn()
-    if imageHub.recv_image():
-        rpiName, frame = imageHub.recv_image()
-        frame = imutils.resize(frame, width=400)
-        # receive RPi name and frame from the RPi and acknowledge
-        # if a device is not in the last active dictionary then it means
-        # that its a newly connected device
-        if rpiName not in lastActive.keys():
-            print("[INFO] receiving data from {}...".format(rpiName))
-        elif rpiName=='NoData':
-            print('No Devices!')
+    rpiName, frame = imageHub.recv_image()
+    frame = imutils.resize(frame, width=400)
+    # receive RPi name and frame from the RPi and acknowledge
+    # if a device is not in the last active dictionary then it means
+    # that its a newly connected device
+    if rpiName not in lastActive.keys():
+        print("[INFO] receiving data from {}...".format(rpiName))
 
-        # # record the last active time for the device from which we just
-        # # received a frame
-        lastActive[rpiName] = datetime.now()
+    # # record the last active time for the device from which we just
+    # # received a frame
+    lastActive[rpiName] = datetime.now()
 
-        # the receipt
-        imageHub.send_reply(b'OK')
-        cv2.putText(frame, "PRESS 'q' TO EXIT", (10, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
+    # the receipt
+    imageHub.send_reply(b'OK')
+    cv2.putText(frame, "PRESS 'q' TO EXIT", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
 
-        # # Resize the frame
-        frame = imutils.resize(frame, width=400)
-        (h, w) = frame.shape[:2]
-        # Convert the frame to grayscale
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        # Detect faces
-        rects = detector(frame, 1)
-        # Now loop over all the face detections and apply the predictor
-        if rects is not None:
-            rect = get_max_area_rect(rects)
-            if rect is not None:
-                shape = predictor(gray, rect)
-                # Convert it to a (68, 2) size numpy array
-                shape = face_utils.shape_to_np(shape)
+    # # Resize the frame
+    frame = imutils.resize(frame, width=400)
+    (h, w) = frame.shape[:2]
+    # Convert the frame to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Detect faces
+    rects = detector(frame, 1)
+    # Now loop over all the face detections and apply the predictor
+    if rects is not None:
+        rect = get_max_area_rect(rects)
+        if rect is not None:
+            shape = predictor(gray, rect)
+            # Convert it to a (68, 2) size numpy array
+            shape = face_utils.shape_to_np(shape)
 
-                leftEye = shape[lstart:lend]
-                rightEye = shape[rstart:rend]
-                mouth = shape[mstart:mend]
+            leftEye = shape[lstart:lend]
+            rightEye = shape[rstart:rend]
+            mouth = shape[mstart:mend]
 
-                # Compute the EAR for both the eyes
-                leftEAR = eye_aspect_ratio(leftEye)
-                rightEAR = eye_aspect_ratio(rightEye)
+            # Compute the EAR for both the eyes
+            leftEAR = eye_aspect_ratio(leftEye)
+            rightEAR = eye_aspect_ratio(rightEye)
 
-                # Take the average of both the EAR
-                EAR = (leftEAR + rightEAR) / 2.0
+            # Take the average of both the EAR
+            EAR = (leftEAR + rightEAR) / 2.0
 
-                # Compute the convex hull for both the eyes and then visualize it
-                leftEyeHull = cv2.convexHull(leftEye)
-                rightEyeHull = cv2.convexHull(rightEye)
+            # Compute the convex hull for both the eyes and then visualize it
+            leftEyeHull = cv2.convexHull(leftEye)
+            rightEyeHull = cv2.convexHull(rightEye)
 
-                # Draw the contours
-                cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-                cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
-                cv2.drawContours(frame, [mouth], -1, (0, 255, 0), 1)
+            # Draw the contours
+            cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
+            cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
+            cv2.drawContours(frame, [mouth], -1, (0, 255, 0), 1)
 
-                MAR = mouth_aspect_ratio(mouth)
+            MAR = mouth_aspect_ratio(mouth)
 
-                # Check if EAR < EAR_THRESHOLD, if so then it indicates that a blink is taking place
-                # Thus, count the number of frames for which the eye remains closed
-                if EAR < EAR_THRESHOLD:
-                    FRAME_COUNT_EAR += 1
+            # Check if EAR < EAR_THRESHOLD, if so then it indicates that a blink is taking place
+            # Thus, count the number of frames for which the eye remains closed
+            if EAR < EAR_THRESHOLD:
+                FRAME_COUNT_EAR += 1
 
-                    cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
-                    cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
+                cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
+                cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
 
-                    if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        # Add the frame to the dataset ar a proof of drowsy driving
-                        send_status('DROWSINESS ALERT', rpiName, datetime.now())
-                        cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                else:
-                    FRAME_COUNT_EAR = 0
-
-                # Check if the person is yawning
-                if MAR > MAR_THRESHOLD:
-                    FRAME_COUNT_MAR += 1
-
-                    cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
-
-                    if FRAME_COUNT_MAR >= 10:
-                        # sendToDjango("YOU R YAWNING")
-                        send_status('YAWNING', rpiName, datetime.now())
-                        cv2.putText(frame, "YOU ARE YAWNING!", (270, 30),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                else:
-                    FRAME_COUNT_MAR = 0
-            else:
-                FRAME_COUNT_DISTR += 1
-
-                if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                    send_status('NO EYES DETECTE', rpiName, datetime.now())
-                    cv2.putText(frame, "EYES ON ROAD PLEASE!!!", (270, 30),
+                if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
+                    # Add the frame to the dataset ar a proof of drowsy driving
+                    send_status('DROWSINESS ALERT', rpiName, datetime.now())
+                    cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                else:
-                    FRAME_COUNT_DISTR = 0
+            else:
+                FRAME_COUNT_EAR = 0
 
-            # build a montage using images in the frame dictionary
-            # detect any kepresses
-            # cv2.imshow("DEMO", frame)
-            frameDict[rpiName] = frame
+            # Check if the person is yawning
+            if MAR > MAR_THRESHOLD:
+                FRAME_COUNT_MAR += 1
 
-            # build a montage using images in the frame dictionary
-            montages = build_montages(frameDict.values(), (w, h), (2, 2))
+                cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
 
-            # display the montage(s) on the screen
-            for (i, montage) in enumerate(montages):
-                cv2.imshow("Home pet location monitor ({})".format(i),
-                    montage)
-            # detect any kepresses
-            key = cv2.waitKey(1) & 0xFF     
-        
+                if FRAME_COUNT_MAR >= 10:
+                    # sendToDjango("YOU R YAWNING")
+                    send_status('YAWNING', rpiName, datetime.now())
+                    cv2.putText(frame, "YOU ARE YAWNING!", (270, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            else:
+                FRAME_COUNT_MAR = 0
+        else:
+            FRAME_COUNT_DISTR += 1
 
-        # if current time *minus* last time when the active device check
-        # was made is greater than the threshold set then do a check
-        if (datetime.now() - lastActiveCheck).seconds > ACTIVE_CHECK_SECONDS:
-            # loop over all previously active devices
-            for (rpiName, ts) in list(lastActive.items()):
-                # print(ts, datetime.now())
-                # remove the RPi from the last active and frame
-                # dictionaries if the device hasn't been active recently
-                if (datetime.now() - ts).seconds > ACTIVE_CHECK_SECONDS:
-                    print("[INFO] lost connection to {}".format(rpiName))
-                    lastActive.pop(rpiName)
-                    frameDict.pop(rpiName)
+            if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
+                send_status('NO EYES DETECTE', rpiName, datetime.now())
+                cv2.putText(frame, "EYES ON ROAD PLEASE!!!", (270, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+            else:
+                FRAME_COUNT_DISTR = 0
 
-        # set the last active check time as current time
-        lastActiveCheck = datetime.now()
-    else:
-        print('Disconet')
+        # build a montage using images in the frame dictionary
+        # detect any kepresses
+        # cv2.imshow("DEMO", frame)
+        frameDict[rpiName] = frame
+
+        # build a montage using images in the frame dictionary
+        montages = build_montages(frameDict.values(), (w, h), (2, 2))
+
+        # display the montage(s) on the screen
+        for (i, montage) in enumerate(montages):
+            cv2.imshow("Home pet location monitor ({})".format(i),
+                montage)
+        # detect any kepresses
+        key = cv2.waitKey(1) & 0xFF     
+    
+
+    # if current time *minus* last time when the active device check
+    # was made is greater than the threshold set then do a check
+    if (datetime.now() - lastActiveCheck).seconds > ACTIVE_CHECK_SECONDS:
+        # loop over all previously active devices
+        for (rpiName, ts) in list(lastActive.items()):
+            # print(ts, datetime.now())
+            # remove the RPi from the last active and frame
+            # dictionaries if the device hasn't been active recently
+            if (datetime.now() - ts).seconds > ACTIVE_CHECK_SECONDS:
+                print("[INFO] lost connection to {}".format(rpiName))
+                lastActive.pop(rpiName)
+                frameDict.pop(rpiName)
+
+    # set the last active check time as current time
+    lastActiveCheck = datetime.now()
     
     # set the last active check time as current time
     # if the `q` key was pressed, break from the loop
