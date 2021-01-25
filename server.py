@@ -82,8 +82,8 @@ count_yawn = 0
 imageHub = imagezmq.ImageHub()
 time.sleep(2)
 while True:
-    rpiName, frame = imageHub.recv_image()
-    frame = imutils.resize(frame, width=400)
+    (rpiName, frame) = imageHub.recv_image()
+    frame = imutils.resize(frame, width=500)
     # receive RPi name and frame from the RPi and acknowledge
     # if a device is not in the last active dictionary then it means
     # that its a newly connected device
@@ -146,7 +146,7 @@ while True:
 
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
                     # Add the frame to the dataset ar a proof of drowsy driving
-                    send_status('DROWSINESS ALERT', rpiName, datetime.now())
+                    # send_status('DROWSINESS ALERT', rpiName, datetime.now())
                     cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
@@ -160,7 +160,7 @@ while True:
 
                 if FRAME_COUNT_MAR >= 10:
                     # sendToDjango("YOU R YAWNING")
-                    send_status('YAWNING', rpiName, datetime.now())
+                    # send_status('YAWNING', rpiName, datetime.now())
                     cv2.putText(frame, "YOU ARE YAWNING!", (270, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
@@ -169,7 +169,7 @@ while True:
             FRAME_COUNT_DISTR += 1
 
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                send_status('NO EYES DETECTE', rpiName, datetime.now())
+                # send_status('NO EYES DETECTE', rpiName, datetime.now())
                 cv2.putText(frame, "EYES ON ROAD PLEASE!!!", (270, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
