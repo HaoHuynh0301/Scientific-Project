@@ -4,13 +4,18 @@
 # import the necessary packages
 import mysql.connector
 from mysql.connector import errorcode
-from connectmysql import *
+from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from rasp4 import *
+from Functions import *
 from imutils import build_montages
 from EAR_calculator import *
 from imutils import face_utils
 from matplotlib import style
 from datetime import datetime
+import base64
+import websocket
+import json
+import random
 import datetime as dt
 import numpy as np
 import mysql
@@ -21,19 +26,9 @@ import imutils
 import cv2
 import time
 
-# Connect to Mysql Server
-try:
-    cnx = mysql.connector.connect(
-        user='root', password='hao152903', database='ras')
-except mysql.connector.Error as err:
-    if err.errno == errorcode.ER_ACCESS_DENIED_ERROR:
-        print("Something is wrong with your user name or password")
-    elif err.errno == errorcode.ER_BAD_DB_ERROR:
-        print("Database does not exist")
-    else:
-        print(err)
-else:
-    print('[INFO]Connecting to Mysql server.....')
+#Connect to Django Server
+ws = websocket.WebSocket()
+ws.connect('ws://192.168.123.147:8000/ws/sendVideo/')
 
 # initialize the dictionary which will contain  information regarding
 # when a device was last active, then store the last time the check
@@ -78,9 +73,10 @@ predictor = dlib.shape_predictor(model_path)
 
 count_sleep = 0
 count_yawn = 0
-# imageHub = imagezmq.ImageHub()
+
 imageHub = imagezmq.ImageHub()
 time.sleep(2)
+
 while True:
     (rpiName, frame) = imageHub.recv_image()
     frame = imutils.resize(frame, width=500)
@@ -146,7 +142,13 @@ while True:
 
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
                     # Add the frame to the dataset ar a proof of drowsy driving
-                    # send_status('DROWSINESS ALERT', rpiName, datetime.now())
+                    pp = json.dumps({
+                        'imgByte': f'Xin chao'
+                    })
+                    try:
+                        ws.send(pp)
+                    except Exception as e:
+                        print(str(e))
                     cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
@@ -159,8 +161,7 @@ while True:
                 cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
 
                 if FRAME_COUNT_MAR >= 10:
-                    # sendToDjango("YOU R YAWNING")
-                    # send_status('YAWNING', rpiName, datetime.now())
+                    sendToDjango("YOU R YAWNING")
                     cv2.putText(frame, "YOU ARE YAWNING!", (270, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
@@ -169,7 +170,6 @@ while True:
             FRAME_COUNT_DISTR += 1
 
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                # send_status('NO EYES DETECTE', rpiName, datetime.now())
                 cv2.putText(frame, "EYES ON ROAD PLEASE!!!", (270, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
@@ -177,7 +177,6 @@ while True:
 
         # build a montage using images in the frame dictionary
         # detect any kepresses
-        # cv2.imshow("DEMO", frame)
         frameDict[rpiName] = frame
 
         # build a montage using images in the frame dictionary
