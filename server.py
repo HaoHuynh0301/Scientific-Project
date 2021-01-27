@@ -27,8 +27,8 @@ import cv2
 import time
 
 #Connect to Django Server
-ws = websocket.WebSocket()
-ws.connect('ws://192.168.123.147:8000/ws/sendVideo/')
+# ws = websocket.WebSocket()
+# ws.connect('ws://192.168.123.149:8000/ws/realtimeData/')
 
 # initialize the dictionary which will contain  information regarding
 # when a device was last active, then store the last time the check
@@ -142,13 +142,16 @@ while True:
 
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
                     # Add the frame to the dataset ar a proof of drowsy driving
-                    pp = json.dumps({
-                        'imgByte': f'Xin chao'
-                    })
-                    try:
-                        ws.send(pp)
-                    except Exception as e:
-                        print(str(e))
+                    # pp = json.dumps({
+                    #     'name': 'Pi 1',
+                    #     'time': str(datetime.now()),
+                    #     'message': 'Drowsiness',
+                    # })
+                    # try:
+                    #     ws.send(pp)
+                    # except Exception as e:
+                    #     print(str(e), 'loi cua tui')
+                        
                     cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
@@ -161,7 +164,17 @@ while True:
                 cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
 
                 if FRAME_COUNT_MAR >= 10:
-                    sendToDjango("YOU R YAWNING")
+                    # Add the frame to the dataset ar a proof of drowsy driving
+                    # pp = json.dumps({
+                    #     'name': 'Pi 1',
+                    #     'time': str(datetime.now()),
+                    #     'message': 'Yawning',
+                    # })
+                    # try:
+                    #     ws.send(pp)
+                    # except Exception as e:
+                    #     print(str(e), 'loi cua tui')
+                    
                     cv2.putText(frame, "YOU ARE YAWNING!", (270, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
             else:
