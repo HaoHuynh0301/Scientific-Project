@@ -7,6 +7,7 @@ import Functions
 from filecheck import FileCheck
 from imutils.video import VideoStream
 
+
 server_ip = "192.168.1.24"
 sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(server_ip))
 rpiName = socket.gethostname()
