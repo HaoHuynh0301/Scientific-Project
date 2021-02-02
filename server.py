@@ -1,35 +1,32 @@
-# USAGE
-# python server.py --prototxt MobileNetSSD_deploy.prototxt --model MobileNetSSD_deploy.caffemodel --montageW 2 --montageH 2
-
 # import the necessary packages
-from mysql.connector import errorcode
 from rasp4 import *
 from Functions import *
 from imutils import build_montages
 from EAR_calculator import *
 from imutils import face_utils
-from matplotlib import style
 from datetime import datetime
-from imutils.video import VideoStream
 import base64
 import websocket
 import json
 import random
 import datetime as dt
 import numpy as np
-import mysql
 import dlib
 import imagezmq
-import argparse
 import imutils
 import cv2
 import time
 
-#Connect to Django Server
-# ws = websocket.WebSocket()
-# ws.connect('ws://192.168.123.149:8000/ws/realtimeData/')
+COUNT_FRAME=0
 
+# Connect to Django Server
+# ws = websocket.WebSocket()
+# ws.connect('ws://192.168.123.147:8000/ws/realtimeData/')
+
+# initialize the dictionary which will contain  information regarding
+# when a device was last active, then store the last time the check
 frameDict = {}
+# was made was now
 lastActive = {}
 lastActiveCheck = datetime.now()
 
@@ -48,8 +45,9 @@ EAR_THRESHOLD = 0.2
 MAR_THRESHOLD = 10
 
 CONSECUTIVE_FRAMES = 20
+CONSECUTIVE_FRAMES_MOUTH = 20
 
-model_path = 'shape_predictor_68_face_landmarks.dat' #Your model path
+model_path = 'shape_predictor_68_face_landmarks.dat'
 
 # Initialize two counters
 BLINK_COUNT = 0
@@ -57,7 +55,8 @@ FRAME_COUNT_EAR = 0
 FRAME_COUNT_MAR = 0
 FRAME_COUNT_DISTR = 0
 
-print("[INFO]Loading the predictor.....")
+# Now, intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
+print("[INFO] Loading the predictor ...")
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(model_path)
 
@@ -68,31 +67,29 @@ predictor = dlib.shape_predictor(model_path)
 
 count_sleep = 0
 count_yawn = 0
-# video=cv2.VideoCapture(0)
-# time.sleep(2)
-vs = VideoStream(src=0,).start()
-time.sleep(1.0)
 
-# imageHub = imagezmq.ImageHub()
-# time.sleep(2)
+print("[INFO] Predictor is ready!")
+
+print("[INFO] Loading ImageHub ...")
+imageHub = imagezmq.ImageHub()
+time.sleep(2)
+print("[INFO] Start recv_image!")
 
 while True:
-    # (rpiName, frame) = imageHub.recv_image()
-    frame=vs.read()
-    rpiName="Pi_1"
-    
+    (rpiName, frame) = imageHub.recv_image()
+    cv2.putText(frame, str(COUNT_FRAME), (300, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
+    COUNT_FRAME=COUNT_FRAME+1
     if rpiName not in lastActive.keys():
         print("[INFO] receiving data from {}...".format(rpiName))
-
     lastActive[rpiName] = datetime.now()
+    imageHub.send_reply(b'OK')
+    cv2.putText(frame, "PRESS 'q' TO EXIT", (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
 
-    # # imageHub.send_reply(b'OK')
-    # cv2.putText(frame, "PRESS 'q' TO EXIT", (10, 30),
-    #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
-
-    frame = imutils.resize(frame, width=400)
+    frame = imutils.resize(frame, width=500)
     (h, w) = frame.shape[:2]
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = frame
     rects = detector(frame, 1)
     
     if len(rects) > 0:
@@ -117,9 +114,10 @@ while True:
             cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
             cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
             if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                # sendDjango('P1', 'DROWSINESS', ws)
+                # sendDjango('Pi 1', 'Drowsiness', ws)
                 cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                FRAME_COUNT_EAR = 0
         else:
             FRAME_COUNT_EAR = 0
 
@@ -127,30 +125,40 @@ while True:
             FRAME_COUNT_MAR += 1
             cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
             if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
-                # sendDjango('P1', 'YAWNING', ws)
+                # sendDjango('Pi 1', 'Yawning', ws)
                 cv2.putText(frame, "YOU ARE YAWNING!", (270, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                FRAME_COUNT_MAR = 0
         else:
             FRAME_COUNT_MAR = 0
+
         FRAME_COUNT_DISTR = 0
     else:
         FRAME_COUNT_DISTR += 1
 
         if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-            # sendDjango('P1', 'NO EYES WERE DETECTED', ws)
+            # sendDjango('Pi 1', 'MissingFace', ws)
             cv2.putText(frame, "EYES ON ROAD PLEASE!!!", (270, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
 
-    frameDict[rpiName] = frame
-    montages = build_montages(frameDict.values(), (w, h), (2, 2))
+    # # build a montage using images in the frame dictionary
+    # # detect any kepresses
+    # frameDict[rpiName] = frame
 
-    # display the montage(s) on the screen
-    for (i, montage) in enumerate(montages):
-        cv2.imshow("Home pet location monitor ({})".format(i),
-            montage)
+    # # build a montage using images in the frame dictionary
+    # montages = build_montages(frameDict.values(), (w, h), (2, 2))
 
-    key = cv2.waitKey(1) & 0xFF    
+    # # display the montage(s) on the screen
+    # for (i, montage) in enumerate(montages):
+    #     cv2.imshow("Home pet location monitor ({})".format(i), montage)
+    cv2.imshow("output", frame)
+    # detect any kepresses
+    key = cv2.waitKey(1) & 0xFF
+    
+    # set the last active check time as current time
+    # if the `q` key was pressed, break from the loop
     if key == ord("q"):
         break
-    
+
+# do a bit of cleanup
 cv2.destroyAllWindows()
