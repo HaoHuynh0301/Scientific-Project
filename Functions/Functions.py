@@ -1,11 +1,6 @@
 # import the necessary packages
-import mysql.connector
-from mysql.connector import errorcode
-# from rasp4 import sendToDjango
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.editor import *
-from imutils import build_montages
-from EAR_calculator import *
 from imutils import face_utils
 from matplotlib import style
 from datetime import datetime
@@ -22,22 +17,23 @@ import time
 import os
 import json
 
-def receive_requestcut(temp_start_temp, temp_end_time):
-    server_ip = "192.168.1.4" #Your IPServer
-    sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(server_ip))
-    rpiName = socket.gethostname()
+def receive_requestcut(temp_start_time, temp_end_time):
+    # server_ip = "localhost" #Your IPServer
+    # sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(server_ip))
+    # rpiName = socket.gethostname()
+    list = []
     
     try:
-        temp_video=VideoFileClip("raspberrypi.mp4").subclip(temp_start_temp, temp_end_time)
+        temp_video=VideoFileClip("raspberrypi.avi").subclip(temp_start_time, temp_end_time)
         n_frames = temp_video.reader.nframes
         print(type(temp_video))
         for temp_video_frame in range(0, n_frames):
-            frame=temp_video.get_frame(temp_video_frame)
-            time.sleep(0.25)
-            sender.send_image(rpiName, frame)
-            
+            frame = temp_video.get_frame(temp_video_frame)
+            list.append(frame)
+        return list
     except Exception as e:
         print('[INFOR]: ' + str(e))
+        return e
         
 def delete_video(temp_FLAT, temp_size, temp_filepath):
     if temp_FLAT==1:
