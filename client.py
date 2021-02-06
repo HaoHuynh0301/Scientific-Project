@@ -23,7 +23,6 @@ def on_message(ws, message):
     data = json.loads(message)
     send =  False
     print(data)
-    #name, start, end
     if data['name'] == DEVICES_NAME:
         try:
             list_frame = receive_requestcut(data['time_start'], data['time_end'])
@@ -45,7 +44,7 @@ def on_error(ws, error):
 
 
 def on_close(ws):
-    print("### closed ###")
+    print("[INFOR]: Closed")
 
 
 def on_open(ws):
@@ -62,10 +61,10 @@ def on_open(ws):
         except Exception as e:
             print(str(e))
 
-        server_ip = "localhost"
+        server_ip = "localhost" #YourIPServer
         sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(server_ip))
         rpiName = socket.gethostname()
-        vs = VideoStream(src=0, frame=30.0).start()
+        vs = VideoStream(src=0).start() #PiCamera=True
         time.sleep(1.0)
         
         #Save video while streaming
