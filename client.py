@@ -12,17 +12,33 @@ import imagezmq
 import socket
 import cv2
 import Functions
+from functions import receive_requestcut
 from imutils.video import VideoStream
 
 SENCOND_SEND = 5
 DEVICES_NAME = 'Pi 1'
+SENDING_CODE = 'NCMHAHA'
 
 def on_message(ws, message):
     data = json.loads(message)
+    send =  False
     print(data)
-    # print(data['noti'])
-
-
+    #name, start, end
+    if data['name'] == DEVICES_NAME:
+        try:
+            list_frame = receive_requestcut(data['time_start'], data['time_end'])
+            send = True
+        except Exception as e:
+            print('[INFOR]: '+ str(e))
+        if send:
+            ws.send(
+                json.dumps({
+                    'name': DEVICES_NAME,
+                    'sending_code': SENDING_CODE,
+                    'list_frames': list_frame
+                })
+            )
+        
 def on_error(ws, error):
     # print(error)
     pass
@@ -46,30 +62,25 @@ def on_open(ws):
         except Exception as e:
             print(str(e))
 
-        server_ip = "192.168.123.210"
+        server_ip = "localhost"
         sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(server_ip))
         rpiName = socket.gethostname()
-
-        vs = VideoStream(usePiCamera=True).start()
+        vs = VideoStream(src=0, frame=30.0).start()
         time.sleep(1.0)
-
-        fps = 10
-
-        size=(320, 240)
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        
+        #Save video while streaming
+        fps = 15.0
+        size=(1280, 720)
         result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
-
-        print("[INFOR]: Connecting to server")
 
         while True:
             try:
                 frame = vs.read()
                 result.write(frame)
-                frame=cv2.resize(frame, (300, 200))
-                #frame=cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                frame=cv2.resize(frame, (720, 480))
                 sender.send_image(rpiName, frame)
             except Exception as err:
-                print("[INFOR]: "+str(err))
+                print("[INFOR]: " + str(err))
 
             if datetime.now().minute - lastActive.minute >= 1:
                 send = True
@@ -91,7 +102,6 @@ def on_open(ws):
                     print(str(e))
 
         ws.close()
-        # print("thread terminating...")
 
     thread.start_new_thread(run, ())
 
