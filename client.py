@@ -39,8 +39,7 @@ def on_message(ws, message):
             )
         
 def on_error(ws, error):
-    # print(error)
-    pass
+    print("[INFOR]: " + str(error))
 
 
 def on_close(ws):
@@ -61,7 +60,7 @@ def on_open(ws):
         except Exception as e:
             print(str(e))
 
-        server_ip = "localhost" #YourIPServer
+        server_ip = "localhost" #replace with your server's IP
         sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(server_ip))
         rpiName = socket.gethostname()
         vs = VideoStream(src=0).start() #PiCamera=True

@@ -1,6 +1,11 @@
 # import the necessary packages
+import mysql.connector
+from mysql.connector import errorcode
+# from rasp4 import sendToDjango
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.editor import *
+from imutils import build_montages
+from EAR_calculator import *
 from imutils import face_utils
 from matplotlib import style
 from datetime import datetime
@@ -18,11 +23,7 @@ import os
 import json
 
 def receive_requestcut(temp_start_time, temp_end_time):
-    # server_ip = "localhost" #Your IPServer
-    # sender = imagezmq.ImageSender(connect_to="tcp://{}:5555".format(server_ip))
-    # rpiName = socket.gethostname()
     list = []
-    
     try:
         temp_video=VideoFileClip("raspberrypi.avi").subclip(temp_start_time, temp_end_time)
         n_frames = temp_video.reader.nframes
@@ -51,6 +52,17 @@ def sendDjango(name, message, temp_ws):
         'name': name,
         'time': str(datetime.now()),
         'activity': message,
+    })
+    try:
+        temp_ws.send(pp)
+    except Exception as e:
+        print("[INFOR]: " + str(e))
+        
+def cutVideo(name, start_time, end_time, temp_ws):
+    pp = json.dumps({
+        'name': name,
+        'start_time': start_time,
+        'end_time': end_time
     })
     try:
         temp_ws.send(pp)
