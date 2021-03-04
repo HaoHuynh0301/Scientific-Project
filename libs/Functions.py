@@ -9,6 +9,7 @@ from EAR_calculator import *
 from imutils import face_utils
 from matplotlib import style
 from datetime import datetime
+import base64
 import socket
 import datetime as dt
 import numpy as np
@@ -24,13 +25,15 @@ import json
 
 def receive_requestcut(temp_start_time, temp_end_time):
     list = []
+    fframe = ""
     try:
         temp_video=VideoFileClip("raspberrypi.avi").subclip(temp_start_time, temp_end_time)
         n_frames = temp_video.reader.nframes
-        print(type(temp_video))
         for temp_video_frame in range(0, n_frames):
             frame = temp_video.get_frame(temp_video_frame)
-            list.append(frame)
+            fframe = base64.b64encode(frame).decode('utf-8')
+            list.append(fframe)
+        print("[INFRO]: Cutting video successfully")
         return list
     except Exception as e:
         print('[INFOR]: ' + str(e))

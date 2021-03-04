@@ -4,23 +4,47 @@ try:
 except ImportError:
     import _thread as thread
 import time
+from imutils.video import VideoStream
+from Functions import *
 from datetime import datetime
 import json
+import dlib
+import cv2
+import imutils
 import random
+
 
 SENCOND_SEND = 5
 DEVICES_NAME = 'Pi 1'
 
 def on_message(ws, message):
     data = json.loads(message)
-    # print(data['noti'])
+    # print(data)
+    send =  False
+    #name, start, end
+    if data['name'] == 'Pi 2':
+        try:
+            list_frame = receive_requestcut(data['time_start'], data['time_end'])
+            send = True
+        except Exception as e:
+            print('[INFOR]: '+ str(e))
+        if send:
+            try:
+                ws.send(
+                    json.dumps({
+                        'name': DEVICES_NAME,
+                        'sending_code': "SENDING_CODE",
+                        'list_frames': list_frame#Use for frame in list_frame to display whole video
+                    })
+                )
+            except Exception as e:
+                print("[INFORCCCCCCCC]: " + str(e))
 
 def on_error(ws, error):
     # print(error)
     pass
 
 def on_close(ws):
-    f.close()
     print("### closed ###")
 
 def on_open(ws):
@@ -62,9 +86,8 @@ def on_open(ws):
         detector = dlib.get_frontal_face_detector()
         predictor = dlib.shape_predictor(model_path)
 
-        vs = VideoStream(usePiCamera=True).start() #usePiCamera=True
+        vs = VideoStream(src=0).start() #usePiCamera=True
         time.sleep(1.0)
-
         count_sleep = 0
         count_yawn = 0
 
@@ -72,11 +95,7 @@ def on_open(ws):
 
         while True:
             frame = vs.read()
-            cv2.putText(frame, str(COUNT_FRAME), (300, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
             COUNT_FRAME=COUNT_FRAME+1
-            cv2.putText(frame, "PRESS 'q' TO EXIT", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
 
             frame = imutils.resize(frame, width=300)
             (h, w) = frame.shape[:2]
@@ -106,8 +125,7 @@ def on_open(ws):
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                        sendDjango('Pi 1', 'Drowsiness', ws)
                         FRAME_COUNT_EAR = 0
                 else:
                     FRAME_COUNT_EAR = 0
@@ -116,8 +134,7 @@ def on_open(ws):
                     FRAME_COUNT_MAR += 1
                     cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
-                        cv2.putText(frame, "YOU ARE YAWNING!", (270, 30),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                        sendDjango('Pi 1', 'Yawning', ws)
                         FRAME_COUNT_MAR = 0
                 else:
                     FRAME_COUNT_MAR = 0
@@ -127,44 +144,38 @@ def on_open(ws):
                 FRAME_COUNT_DISTR += 1
 
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                    cv2.putText(frame, "EYES ON ROAD PLEASE!!!", (270, 30),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    pass
+                    # sendDjango('Pi 1', 'No eyes detected', ws)
 
-            cv2.imshow("output", frame)
-            # detect any kepresses
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("q"):
-                break
+            try:
+                ws.send(
+                    json.dumps({
+                        'name': DEVICES_NAME,
+                        'time': str(lastActive),
+                    }))
+                
+            except Exception as e:
+                print(str(e))
 
-        try:
-            ws.send(
-                json.dumps({
-                    'name': DEVICES_NAME,
-                    'time': str(lastActive),
-                }))
-            
-        except Exception as e:
-            print(str(e))
-
-        while True:
-            if datetime.now().minute - lastActive.minute >= 1:
-                send = True
-
-            else:
-                if datetime.now().second - lastActive.second >= 2:
+            while True:
+                if datetime.now().minute - lastActive.minute >= 1:
                     send = True
 
-            if send:
-                try:
-                    ws.send(
-                        json.dumps({
-                            'name': DEVICES_NAME,
-                            'time': str(datetime.now())
-                        }))
-                    send = False
-                    lastActive = datetime.now()
-                except Exception as e:
-                    print(str(e))
+                else:
+                    if datetime.now().second - lastActive.second >= 2:
+                        send = True
+
+                if send:
+                    try:
+                        ws.send(
+                            json.dumps({
+                                'name': DEVICES_NAME,
+                                'time': str(datetime.now())
+                            }))
+                        send = False
+                        lastActive = datetime.now()
+                    except Exception as e:
+                        print(str(e))
 
         ws.close()
         # print("thread terminating...")
