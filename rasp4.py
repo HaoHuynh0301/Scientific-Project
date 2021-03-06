@@ -12,6 +12,7 @@ import dlib
 import cv2
 import imutils
 import random
+import getch
 
 
 SENCOND_SEND = 5
@@ -38,7 +39,7 @@ def on_message(ws, message):
                     })
                 )
             except Exception as e:
-                print("[INFORCCCCCCCC]: " + str(e))
+                print("[INFOR]: " + str(e))
 
 def on_error(ws, error):
     # print(error)
@@ -50,8 +51,7 @@ def on_close(ws):
 def on_open(ws):
     def run(*args):
         lastActive = datetime.now()
-        send = False
-        
+        # send = False
         COUNT_FRAME = 0
 
         frameDict = {}
@@ -86,15 +86,23 @@ def on_open(ws):
         detector = dlib.get_frontal_face_detector()
         predictor = dlib.shape_predictor(model_path)
 
-        vs = VideoStream(src=0).start() #usePiCamera=True
+        vs = VideoStream(src=0, resolution=(1280, 720)).start() 
+        # vs = cv2.VideoCapture(0)#usePiCamera=True
         time.sleep(1.0)
         count_sleep = 0
         count_yawn = 0
 
         print("[INFO]: Predictor is ready!")
-
-        while True:
+        
+        fps = 10
+        size = (1280, 720) 
+        #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
+        result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
+        Flag = False
+        while Flag == False:
             frame = vs.read()
+            # frame = cv2.resize(frame, (1280, 720))
+            result.write(frame)
             COUNT_FRAME=COUNT_FRAME+1
 
             frame = imutils.resize(frame, width=300)
@@ -125,7 +133,7 @@ def on_open(ws):
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        sendDjango('Pi 1', 'Drowsiness', ws)
+                        # sendDjango('Pi 1', 'Drowsiness', ws)
                         FRAME_COUNT_EAR = 0
                 else:
                     FRAME_COUNT_EAR = 0
@@ -134,7 +142,9 @@ def on_open(ws):
                     FRAME_COUNT_MAR += 1
                     cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
-                        sendDjango('Pi 1', 'Yawning', ws)
+                        print("YOU ARE YAWNING")
+                        Flag = True
+                        # sendDjango('Pi 1', 'Yawning', ws)
                         FRAME_COUNT_MAR = 0
                 else:
                     FRAME_COUNT_MAR = 0
@@ -144,7 +154,7 @@ def on_open(ws):
                 FRAME_COUNT_DISTR += 1
 
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                    pass
+                    print("No eyes")
                     # sendDjango('Pi 1', 'No eyes detected', ws)
 
             try:
@@ -153,38 +163,39 @@ def on_open(ws):
                         'name': DEVICES_NAME,
                         'time': str(lastActive),
                     }))
-                
             except Exception as e:
                 print(str(e))
 
-            while True:
-                if datetime.now().minute - lastActive.minute >= 1:
-                    send = True
+            # while True:
+            #     if datetime.now().minute - lastActive.minute >= 1:
+            #         send = True
 
-                else:
-                    if datetime.now().second - lastActive.second >= 2:
-                        send = True
+            #     else:
+            #         if datetime.now().second - lastActive.second >= 2:
+            #             send = True
 
-                if send:
-                    try:
-                        ws.send(
-                            json.dumps({
-                                'name': DEVICES_NAME,
-                                'time': str(datetime.now())
-                            }))
-                        send = False
-                        lastActive = datetime.now()
-                    except Exception as e:
-                        print(str(e))
-
+            #     if send:
+            #         try:
+            #             ws.send(
+            #                 json.dumps({
+            #                     'name': DEVICES_NAME,
+            #                     'time': str(datetime.now())
+            #                 }))
+            #             send = False
+            #             lastActive = datetime.now()
+            #         except Exception as e:
+            #             print(str(e))   
+                        
+        result.release()
         ws.close()
-        # print("thread terminating...")
+        print("thread terminating...")
     thread.start_new_thread(run, ())
 
 if __name__ == "__main__":
     # websocket.enableTrace(True)
     # url = 'ws://localhost:8000/ws/realtimeData/'
     url = 'ws://localhost:8000/ws/realtimeData/'
+
 
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
