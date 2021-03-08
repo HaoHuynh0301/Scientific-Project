@@ -1,11 +1,9 @@
 # import the necessary packages
-import mysql.connector
-from mysql.connector import errorcode
 # from rasp4 import sendToDjango
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.editor import *
 from imutils import build_montages
-from EAR_calculator import *
+from Data.EAR_calculator import *
 from imutils import face_utils
 from matplotlib import style
 from datetime import datetime
@@ -13,9 +11,6 @@ import base64
 import socket
 import datetime as dt
 import numpy as np
-import mysql
-import dlib
-import imagezmq
 import argparse
 import imutils
 import cv2
