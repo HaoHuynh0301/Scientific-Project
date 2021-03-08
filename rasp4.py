@@ -5,15 +5,13 @@ except ImportError:
     import _thread as thread
 import time
 from imutils.video import VideoStream
-from Functions import *
+from libs.Functions import *
 from datetime import datetime
 import json
 import dlib
 import cv2
 import imutils
 import random
-import getch
-
 
 SENCOND_SEND = 5
 DEVICES_NAME = 'Pi 1'
@@ -99,7 +97,7 @@ def on_open(ws):
         #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
         result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
         Flag = False
-        while Flag == False:
+        while True:
             frame = vs.read()
             # frame = cv2.resize(frame, (1280, 720))
             result.write(frame)
@@ -165,26 +163,6 @@ def on_open(ws):
                     }))
             except Exception as e:
                 print(str(e))
-
-            # while True:
-            #     if datetime.now().minute - lastActive.minute >= 1:
-            #         send = True
-
-            #     else:
-            #         if datetime.now().second - lastActive.second >= 2:
-            #             send = True
-
-            #     if send:
-            #         try:
-            #             ws.send(
-            #                 json.dumps({
-            #                     'name': DEVICES_NAME,
-            #                     'time': str(datetime.now())
-            #                 }))
-            #             send = False
-            #             lastActive = datetime.now()
-            #         except Exception as e:
-            #             print(str(e))   
                         
         result.release()
         ws.close()
