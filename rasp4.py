@@ -13,22 +13,26 @@ import cv2
 import imutils
 import random
 
-SENCOND_SEND = 5
+SENCOND_SEND = 10
 DEVICES_NAME = 'Pi 1'
 
 def on_message(ws, message):
+    
     data = json.loads(message)
     # print(data)
-    send =  False
+    send = False
+    list_frame = ""
     #name, start, end
     if data['name'] == 'Pi 2':
         try:
             list_frame = receive_requestcut(data['time_start'], data['time_end'])
             send = True
         except Exception as e:
-            print('[INFOR]: '+ str(e))
+            print('[INFOR] Rasp4_1:'+ str(e))
+            
         if send:
             try:
+                
                 ws.send(
                     json.dumps({
                         'name': DEVICES_NAME,
@@ -36,8 +40,9 @@ def on_message(ws, message):
                         'list_frames': list_frame#Use for frame in list_frame to display whole video
                     })
                 )
+                
             except Exception as e:
-                print("[INFOR]: " + str(e))
+                print("[INFOR] Rasp4_2: " + str(e))
 
 def on_error(ws, error):
     # print(error)
@@ -152,7 +157,8 @@ def on_open(ws):
                 FRAME_COUNT_DISTR += 1
 
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                    print("No eyes")
+                    pass
+                    # print("No eyes")
                     # sendDjango('Pi 1', 'No eyes detected', ws)
 
             try:
@@ -161,9 +167,10 @@ def on_open(ws):
                         'name': DEVICES_NAME,
                         'time': str(lastActive),
                     }))
+                
             except Exception as e:
-                print(str(e))
-                        
+                print("[ERROR active: " + str(e))
+                                        
         result.release()
         ws.close()
         print("thread terminating...")
