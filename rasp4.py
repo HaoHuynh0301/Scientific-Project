@@ -15,6 +15,7 @@ import random
 
 SENCOND_SEND = 10
 DEVICES_NAME = 'Pi 1'
+SENDING_CODE = "JDAWH&^"
 
 def on_message(ws, message):
     
@@ -36,7 +37,7 @@ def on_message(ws, message):
                 ws.send(
                     json.dumps({
                         'name': DEVICES_NAME,
-                        'sending_code': "SENDING_CODE",
+                        'sending_code': SENDING_CODE,
                         'list_frames': list_frame#Use for frame in list_frame to display whole video
                     })
                 )
@@ -98,13 +99,13 @@ def on_open(ws):
         print("[INFO]: Predictor is ready!")
         
         fps = 10
-        size = (1280, 720) 
+        size = (720, 480)
         #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
         result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
         Flag = False
         while True:
             frame = vs.read()
-            # frame = cv2.resize(frame, (1280, 720))
+            frame = cv2.resize(frame, (720, 480))
             result.write(frame)
             COUNT_FRAME=COUNT_FRAME+1
 
@@ -136,7 +137,7 @@ def on_open(ws):
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        # sendDjango('Pi 1', 'Drowsiness', ws)
+                        sendDjango('Pi 1', 'Drowsiness', ws)
                         FRAME_COUNT_EAR = 0
                 else:
                     FRAME_COUNT_EAR = 0
@@ -147,7 +148,7 @@ def on_open(ws):
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
                         print("YOU ARE YAWNING")
                         Flag = True
-                        # sendDjango('Pi 1', 'Yawning', ws)
+                        sendDjango('Pi 1', 'Yawning', ws)
                         FRAME_COUNT_MAR = 0
                 else:
                     FRAME_COUNT_MAR = 0
@@ -169,11 +170,10 @@ def on_open(ws):
                     }))
                 
             except Exception as e:
-                print("[ERROR active: " + str(e))
-                                        
+                print("[ERROR active: " + str(e))                  
         result.release()
-        ws.close()
         print("thread terminating...")
+        ws.close()
     thread.start_new_thread(run, ())
 
 if __name__ == "__main__":
