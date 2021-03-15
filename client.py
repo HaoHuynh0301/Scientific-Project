@@ -22,10 +22,11 @@ SENDING_CODE = 'NCMHAHA'
 def on_message(ws, message):
     data = json.loads(message)
     send =  False
-    print(data)
+    i = ""
     if data['name'] == DEVICES_NAME:
         try:
             list_frame = receive_requestcut(data['time_start'], data['time_end'])
+            print(list_frame)
             send = True
         except Exception as e:
             print('[INFOR]: '+ str(e))
@@ -37,7 +38,7 @@ def on_message(ws, message):
                     'list_frames': list_frame
                 })
             )
-        
+            
 def on_error(ws, error):
     print("[INFOR]: " + str(error))
 

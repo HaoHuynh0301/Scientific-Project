@@ -19,23 +19,25 @@ import os
 import json
 
 def receive_requestcut(temp_start_time, temp_end_time):
-    Resultstr = ""
+    Resultstr = []
     fframe = ""
     try:
         temp_video=VideoFileClip("/Users/macos/Documents/Ras/raspberrypi.avi").subclip(temp_start_time, temp_end_time)
         n_frames = temp_video.reader.nframes
         for temp_video_frame in range(0, n_frames):
-            frame = temp_video.get_frame(temp_video_frame)       
+            frame = temp_video.get_frame(temp_video_frame)  
+            frame = cv2.resize(frame, (100, 100))
             fframe = base64.b64encode(frame).decode('utf-8')
-            Resultstr = Resultstr + fframe + "*"
+            Resultstr.append(fframe)
+            
         print("[INFRO]: Cutting video successfully")
         return Resultstr
     except Exception as e:
         print('[INFOR] Functions: ' + str(e))
         
 def delete_video(temp_FLAT, temp_size, temp_filepath):
-    if temp_FLAT==1:
-        if temp_size>=100:
+    if temp_FLAT == 1:
+        if temp_size >= 100:
             try:
                 os.remove(temp_filepath)
                 print('[INFOR]: Remove video successfully!!!')

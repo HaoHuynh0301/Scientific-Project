@@ -18,36 +18,38 @@ DEVICES_NAME = 'Pi 1'
 SENDING_CODE = "JDAWH&^"
 
 def on_message(ws, message):
-    
+    print("[ERROR")
     data = json.loads(message)
     # print(data)
+    list_frame = []
     send = False
-    list_frame = ""
+    i = ""
     #name, start, end
+    print("[ERROR 1")
     if data['name'] == 'Pi 2':
+        print("[ERROR 2")
         try:
             list_frame = receive_requestcut(data['time_start'], data['time_end'])
             send = True
         except Exception as e:
-            print('[INFOR] Rasp4_1:'+ str(e))
+            print('[INFOR] Rasp4_1:'+ str(e))         
             
-        if send:
+        if send:       
             try:
-                
-                ws.send(
-                    json.dumps({
-                        'name': DEVICES_NAME,
-                        'sending_code': SENDING_CODE,
-                        'list_frames': list_frame#Use for frame in list_frame to display whole video
-                    })
-                )
-                
+                for i in list_frame:     
+                    ws.send(
+                        json.dumps({
+                            # 'name': DEVICES_NAME,
+                            'sending_code': SENDING_CODE,
+                            'list_frames': i#Use for frame in list_frame to display whole video
+                        })
+                    )
             except Exception as e:
                 print("[INFOR] Rasp4_2: " + str(e))
 
 def on_error(ws, error):
-    # print(error)
-    pass
+    print(error)
+    # pass
 
 def on_close(ws):
     print("### closed ###")
@@ -162,15 +164,15 @@ def on_open(ws):
                     # print("No eyes")
                     # sendDjango('Pi 1', 'No eyes detected', ws)
 
-            try:
-                ws.send(
-                    json.dumps({
-                        'name': DEVICES_NAME,
-                        'time': str(lastActive),
-                    }))
+            # try:
+            #     ws.send(
+            #         json.dumps({
+            #             'name': DEVICES_NAME,
+            #             'time': str(lastActive),
+            #         }))
                 
-            except Exception as e:
-                print("[ERROR active: " + str(e))                  
+            # except Exception as e:
+            #     print("[ERROR active: " + str(e))                  
         result.release()
         print("thread terminating...")
         ws.close()
@@ -178,9 +180,9 @@ def on_open(ws):
 
 if __name__ == "__main__":
     # websocket.enableTrace(True)
+    # url = 'ws://10.10.34.158:8000/ws/realtimeData/'
+    url = 'ws://10.10.34.158:8000/ws/realtime/'
     # url = 'ws://localhost:8000/ws/realtimeData/'
-    url = 'ws://localhost:8000/ws/realtimeData/'
-
 
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
