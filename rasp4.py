@@ -105,6 +105,26 @@ def on_open(ws):
         result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
         Flag = False
         
+        try:
+                ws.send(
+                    json.dumps(
+                        {
+                            "command": "updateActive",
+                            "name": DEVICES_NAME,
+                            "time": str(lastActive),
+                        }
+                    )
+                )
+        except Exception as e:
+            print(str(e))
+
+        if datetime.now().minute - lastActive.minute >= 1:
+            send = True
+
+        else:
+            if datetime.now().second - lastActive.second >= 2:
+                send = True
+        
         while True:
             frame = vs.read()
             frame = cv2.resize(frame, (720, 480))
@@ -161,26 +181,6 @@ def on_open(ws):
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
                     print("No eyes")
                     sendDjango('Pi 1', 'No eyes detected', ws)
-
-            try:
-                ws.send(
-                    json.dumps(
-                        {
-                            "command": "updateActive",
-                            "name": DEVICES_NAME,
-                            "time": str(lastActive),
-                        }
-                    )
-                )
-            except Exception as e:
-                print(str(e))
-
-            if datetime.now().minute - lastActive.minute >= 1:
-                send = True
-
-            else:
-                if datetime.now().second - lastActive.second >= 2:
-                    send = True
 
             if send:
                 try:
