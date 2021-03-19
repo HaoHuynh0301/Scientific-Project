@@ -48,6 +48,7 @@ def delete_video(temp_FLAT, temp_size, temp_filepath):
         
 def sendDjango(name, message, temp_ws):
     pp = json.dumps({
+        "command": 'alert',
         'name': name,
         'time': str(datetime.now()),
         'activity': message,

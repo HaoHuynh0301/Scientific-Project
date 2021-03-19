@@ -18,16 +18,13 @@ DEVICES_NAME = 'Pi 1'
 SENDING_CODE = "JDAWH&^"
 
 def on_message(ws, message):
-    print("[ERROR")
     data = json.loads(message)
     # print(data)
     list_frame = []
     send = False
     i = ""
-    #name, start, end
-    print("[ERROR 1")
+    
     if data['name'] == 'Pi 2':
-        print("[ERROR 2")
         try:
             list_frame = receive_requestcut(data['time_start'], data['time_end'])
             send = True
@@ -39,11 +36,12 @@ def on_message(ws, message):
                 for i in list_frame:     
                     ws.send(
                         json.dumps({
-                            # 'name': DEVICES_NAME,
+                            'name': DEVICES_NAME,
                             'sending_code': SENDING_CODE,
                             'list_frames': i#Use for frame in list_frame to display whole video
                         })
                     )
+                    time.sleep(0.5)  
             except Exception as e:
                 print("[INFOR] Rasp4_2: " + str(e))
 
@@ -57,6 +55,7 @@ def on_close(ws):
 def on_open(ws):
     def run(*args):
         lastActive = datetime.now()
+        send = False
         # send = False
         COUNT_FRAME = 0
 
@@ -105,6 +104,7 @@ def on_open(ws):
         #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
         result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
         Flag = False
+        
         while True:
             frame = vs.read()
             frame = cv2.resize(frame, (720, 480))
@@ -149,7 +149,6 @@ def on_open(ws):
                     cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
                         print("YOU ARE YAWNING")
-                        Flag = True
                         sendDjango('Pi 1', 'Yawning', ws)
                         FRAME_COUNT_MAR = 0
                 else:
@@ -160,19 +159,45 @@ def on_open(ws):
                 FRAME_COUNT_DISTR += 1
 
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                    pass
-                    # print("No eyes")
-                    # sendDjango('Pi 1', 'No eyes detected', ws)
+                    print("No eyes")
+                    sendDjango('Pi 1', 'No eyes detected', ws)
 
-            # try:
-            #     ws.send(
-            #         json.dumps({
-            #             'name': DEVICES_NAME,
-            #             'time': str(lastActive),
-            #         }))
-                
-            # except Exception as e:
-            #     print("[ERROR active: " + str(e))                  
+            try:
+                ws.send(
+                    json.dumps(
+                        {
+                            "command": "updateActive",
+                            "name": DEVICES_NAME,
+                            "time": str(lastActive),
+                        }
+                    )
+                )
+            except Exception as e:
+                print(str(e))
+
+            if datetime.now().minute - lastActive.minute >= 1:
+                send = True
+
+            else:
+                if datetime.now().second - lastActive.second >= 2:
+                    send = True
+
+            if send:
+                try:
+                    ws.send(
+                        json.dumps(
+                            {
+                                "command": "updateActive",
+                                "name": DEVICES_NAME,
+                                "time": str(datetime.now()),
+                            }
+                        )
+                    )
+                    send = False
+                    lastActive = datetime.now()
+                except Exception as e:
+                    print(str(e))
+                                
         result.release()
         print("thread terminating...")
         ws.close()
@@ -181,7 +206,7 @@ def on_open(ws):
 if __name__ == "__main__":
     # websocket.enableTrace(True)
     # url = 'ws://10.10.34.158:8000/ws/realtimeData/'
-    url = 'ws://10.10.34.158:8000/ws/realtime/'
+    url = 'ws://10.10.32.119:8000/ws/realtime/'
     # url = 'ws://localhost:8000/ws/realtimeData/'
 
     ws = websocket.WebSocketApp(url,

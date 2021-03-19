@@ -8,9 +8,9 @@ import socket
 
 # Connect to Django Server
 ws = websocket.WebSocket()
-ws.connect('ws://10.10.34.158:8000/ws/realtime/')
+# ws.connect('ws://10.10.34.158:8000/ws/realtime/')
 
-# ws.connect('ws://localhost:8000/ws/realtimeData/')
+ws.connect('ws://localhost:8000/ws/realtimeData/')
 
 try:
     pp = json.dumps({
