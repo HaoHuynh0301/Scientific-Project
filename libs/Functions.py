@@ -31,7 +31,7 @@ def receive_requestcut(temp_start_time, temp_end_time):
             Resultstr.append(fframe)
             
         print("[INFRO]: Cutting video successfully")
-        return Resultstr
+        return fframe
     except Exception as e:
         print('[INFOR] Functions: ' + str(e))
         

@@ -10,7 +10,7 @@ import socket
 ws = websocket.WebSocket()
 # ws.connect('ws://10.10.34.158:8000/ws/realtime/')
 
-ws.connect('ws://localhost:8000/ws/realtimeData/')
+ws.connect('ws://192.168.123.147:8000/ws/realtime/')
 
 try:
     pp = json.dumps({

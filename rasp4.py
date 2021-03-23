@@ -15,30 +15,30 @@ import random
 
 SENCOND_SEND = 10
 DEVICES_NAME = 'Pi 1'
-SENDING_CODE = "JDAWH&^"
 
 def on_message(ws, message):
     data = json.loads(message)
-    # print(data)
+    print(data)
     list_frame = []
+    result = "";
     send = False
     i = ""
     
-    if data['name'] == 'Pi 2':
+    if data['command'] == 'getInfo':
         try:
-            list_frame = receive_requestcut(data['time_start'], data['time_end'])
+            result = receive_requestcut(1, 2)
             send = True
         except Exception as e:
             print('[INFOR] Rasp4_1:'+ str(e))         
             
         if send:       
             try:
-                for i in list_frame:     
+                # for i in list_frame:     
                     ws.send(
                         json.dumps({
+                            'command': 'send_video',
                             'name': DEVICES_NAME,
-                            'sending_code': SENDING_CODE,
-                            'list_frames': i#Use for frame in list_frame to display whole video
+                            'list_frames': result#Use for frame in list_frame to display whole video
                         })
                     )
                     time.sleep(0.5)  
@@ -179,8 +179,9 @@ def on_open(ws):
                 FRAME_COUNT_DISTR += 1
 
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                    print("No eyes")
-                    sendDjango('Pi 1', 'No eyes detected', ws)
+                    pass
+                    # print("No eyes")
+                    # sendDjango('Pi 1', 'No eyes detected', ws)
 
             if send:
                 try:
@@ -206,7 +207,7 @@ def on_open(ws):
 if __name__ == "__main__":
     # websocket.enableTrace(True)
     # url = 'ws://10.10.34.158:8000/ws/realtimeData/'
-    url = 'ws://10.10.32.119:8000/ws/realtime/'
+    url = 'ws://192.168.123.147:8000/ws/realtime/'
     # url = 'ws://localhost:8000/ws/realtimeData/'
 
     ws = websocket.WebSocketApp(url,
