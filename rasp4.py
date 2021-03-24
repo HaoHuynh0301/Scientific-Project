@@ -26,7 +26,7 @@ def on_message(ws, message):
     
     if data['command'] == 'getInfo':
         try:
-            result = receive_requestcut_term(1, 2)
+            result = receive_requestcut("24032021135135", 'yawning')
             send = True
         except Exception as e:
             print('[INFOR] Rasp4_1:'+ str(e))         
@@ -59,6 +59,7 @@ def on_open(ws):
         send = False
         # send = False
         COUNT_FRAME = 0
+        SENDDATETIME = ""
 
         frameDict = {}
         lastActiveCheck = datetime.now()
@@ -170,9 +171,9 @@ def on_open(ws):
                     if FRAME_COUNT_MAR == 0:
                         fps = 10
                         size = (720, 480)
-                        print(getDateName())
+                        SENDDATETIME = getDateName()
                         #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
-                        resultYawning = cv2.VideoWriter('/media/yawning' + getDateName() + '.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
+                        resultYawning = cv2.VideoWriter('media/yawning' + SENDDATETIME + '.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
                     
                     FRAME_COUNT_MAR += 1
                     frame = cv2.resize(frame, (720, 480))
@@ -181,6 +182,7 @@ def on_open(ws):
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
                         resultYawning.release()
                         print("YOU ARE YAWNING")
+                        print(getDateName())
                         sendDjango('Pi 1', 'Yawning', ws)
                         FRAME_COUNT_MAR = 0
                     

@@ -5,6 +5,7 @@ from moviepy.editor import *
 from imutils import build_montages
 from datetime import datetime
 from model.EAR_calculator import *
+from libs.Functions import *
 from imutils import face_utils
 from matplotlib import style
 import base64
@@ -36,14 +37,16 @@ def receive_requestcut_term(temp_start_time, temp_end_time):
         
 def receive_requestcut(tmpDateTime, message):
     ResultStr = []
-    cap = cv2.VideoCapture(message + tmpDateTime + '.avi')
-    for frame in cap:
-        frame = cv2.resize(frame, (720, 480))
+    fframe = ""
+    cap = cv2.VideoCapture("/Users/macos/Documents/ScientificProject/media/yawning24032021135136.avi")
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+        if ret == False:
+            break
         fframe = base64.b64encode(cv2.imencode('.jpg', frame)[1]).decode()
-        ResultStr.append(fframe)
         
-        
-        
+    return fframe
+
 def delete_video(temp_FLAT, temp_size, temp_filepath):
     if temp_FLAT == 1:
         if temp_size >= 100:
@@ -55,11 +58,12 @@ def delete_video(temp_FLAT, temp_size, temp_filepath):
     else:
         print('[INFOR]: Delete Unsuccessfully!!!')
         
-def sendDjango(name, message, temp_ws):
+def sendDjango(name, message, senddatetime, temp_ws):
     pp = json.dumps({
         "command": 'alert',
         'name': name,
         'time': str(datetime.now()),
+        # 'time': senddatetime,
         'activity': message,
     })
     try:
@@ -68,6 +72,7 @@ def sendDjango(name, message, temp_ws):
         print("[INFOR]: " + str(e))
         
 def getDateName():
+    print("THIS")
     now = datetime.now()
     dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
     dt_string = dt_string.replace("/", "")
