@@ -12,6 +12,7 @@ import dlib
 import cv2
 import imutils
 import random
+from datetime import date
 
 SENCOND_SEND = 10
 DEVICES_NAME = 'Pi 1'
@@ -22,11 +23,10 @@ def on_message(ws, message):
     list_frame = []
     result = "";
     send = False
-    i = ""
     
     if data['command'] == 'getInfo':
         try:
-            result = receive_requestcut(1, 2)
+            result = receive_requestcut_term(1, 2)
             send = True
         except Exception as e:
             print('[INFOR] Rasp4_1:'+ str(e))         
@@ -38,10 +38,11 @@ def on_message(ws, message):
                         json.dumps({
                             'command': 'send_video',
                             'name': DEVICES_NAME,
-                            'list_frames': result#Use for frame in list_frame to display whole video
+                            'frame': result#Use for frame in list_frame to display whole video
                         })
                     )
                     time.sleep(0.5)  
+
             except Exception as e:
                 print("[INFOR] Rasp4_2: " + str(e))
 
@@ -103,18 +104,17 @@ def on_open(ws):
         size = (720, 480)
         #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
         result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
-        Flag = False
         
         try:
-                ws.send(
-                    json.dumps(
-                        {
-                            "command": "updateActive",
-                            "name": DEVICES_NAME,
-                            "time": str(lastActive),
-                        }
-                    )
+            ws.send(
+                json.dumps(
+                    {
+                        "command": "updateActive",
+                        "name": DEVICES_NAME,
+                        "time": str(lastActive),
+                    }
                 )
+            )
         except Exception as e:
             print(str(e))
 
@@ -124,6 +124,8 @@ def on_open(ws):
         else:
             if datetime.now().second - lastActive.second >= 2:
                 send = True
+                
+        Flag = False
         
         while True:
             frame = vs.read()
@@ -165,12 +167,23 @@ def on_open(ws):
                     FRAME_COUNT_EAR = 0
 
                 if MAR > MAR_THRESHOLD:
+                    if FRAME_COUNT_MAR == 0:
+                        fps = 10
+                        size = (720, 480)
+                        print(getDateName())
+                        #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
+                        resultYawning = cv2.VideoWriter('/media/yawning' + getDateName() + '.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
+                    
                     FRAME_COUNT_MAR += 1
-                    cv2.drawContours(frame, [mouth], -1, (0, 0, 255), 1)
+                    frame = cv2.resize(frame, (720, 480))
+                    resultYawning.write(frame)    
+                      
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
+                        resultYawning.release()
                         print("YOU ARE YAWNING")
                         sendDjango('Pi 1', 'Yawning', ws)
                         FRAME_COUNT_MAR = 0
+                    
                 else:
                     FRAME_COUNT_MAR = 0
 
@@ -206,9 +219,9 @@ def on_open(ws):
 
 if __name__ == "__main__":
     # websocket.enableTrace(True)
-    # url = 'ws://10.10.34.158:8000/ws/realtimeData/'
-    url = 'ws://192.168.123.147:8000/ws/realtime/'
-    # url = 'ws://localhost:8000/ws/realtimeData/'
+    # # # url = 'ws://10.10.34.158:8000/ws/realtimeData/'
+    # url = 'ws://192.168.123.147:8000/ws/realtime/'
+    url = 'ws://localhost:8000/ws/realtimeData/'
 
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
