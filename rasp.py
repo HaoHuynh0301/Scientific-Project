@@ -3,19 +3,23 @@ try:
     import thread
 except ImportError:
     import _thread as thread
-import time
+from model.EAR_calculator import *
+from libs.VideoActivity import VideoActivity
+from libs.Socket import Socket
+from libs.DateTime import DateTime
 from imutils.video import VideoStream
-from libs.Functions import *
 from datetime import datetime
+import time
 import json
 import dlib
 import cv2
 import imutils
 import random
-from datetime import date
 
 SENCOND_SEND = 10
 DEVICES_NAME = 'Pi 1'
+VDA = VideoActivity()
+DATETIME = DateTime()
 
 def on_message(ws, message):
     data = json.loads(message)
@@ -26,7 +30,7 @@ def on_message(ws, message):
     
     if data['command'] == 'getInfo':
         try:
-            result = receive_requestcut("24032021135135", 'yawning')
+            result = VDA.receive_requestcut("24032021135135", 'yawning')
             send = True
         except Exception as e:
             print('[INFOR] Rasp4_1:'+ str(e))         
@@ -55,6 +59,8 @@ def on_close(ws):
 
 def on_open(ws):
     def run(*args):
+        
+        SOCKET = Socket(ws)
         lastActive = datetime.now()
         send = False
         # send = False
@@ -132,7 +138,7 @@ def on_open(ws):
             frame = vs.read()
             frame = cv2.resize(frame, (720, 480))
             result.write(frame)
-            COUNT_FRAME=COUNT_FRAME+1
+            COUNT_FRAME = COUNT_FRAME+1
 
             frame = imutils.resize(frame, width=300)
             (h, w) = frame.shape[:2]
@@ -162,7 +168,7 @@ def on_open(ws):
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        sendDjango('Pi 1', 'Drowsiness', SENDDATETIME, ws)
+                        SOCKET.sendDjango('Pi 1', 'Drowsiness', SENDDATETIME, ws)
                         FRAME_COUNT_EAR = 0
                 else:
                     FRAME_COUNT_EAR = 0
@@ -171,7 +177,7 @@ def on_open(ws):
                     if FRAME_COUNT_MAR == 0:
                         fps = 10
                         size = (720, 480)
-                        SENDDATETIME = getDateName()
+                        SENDDATETIME = DATETIME.getDateName()
                         #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
                         resultYawning = cv2.VideoWriter('media/yawning' + SENDDATETIME + '.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
                     
@@ -182,8 +188,7 @@ def on_open(ws):
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
                         resultYawning.release()
                         print("YOU ARE YAWNING")
-                        print(getDateName())
-                        sendDjango('Pi 1', 'Yawning', SENDDATETIME, ws)
+                        SOCKET.sendDjango('Pi 1', 'Yawning', SENDDATETIME, ws)
                         FRAME_COUNT_MAR = 0
                     
                 else:
@@ -196,7 +201,7 @@ def on_open(ws):
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
                     pass
                     # print("No eyes")
-                    # sendDjango('Pi 1', 'No eyes detected', ws)
+                    # SOCKET.sendDjango('Pi 1', 'No eyes detected', ws)
 
             if send:
                 try:

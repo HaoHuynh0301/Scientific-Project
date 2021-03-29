@@ -1,5 +1,3 @@
-# import the necessary packages
-# from rasp4 import sendToDjango
 from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.editor import *
 from imutils import build_montages
