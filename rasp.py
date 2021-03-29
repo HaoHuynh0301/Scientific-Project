@@ -162,7 +162,7 @@ def on_open(ws):
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        sendDjango('Pi 1', 'Drowsiness', ws)
+                        sendDjango('Pi 1', 'Drowsiness', SENDDATETIME, ws)
                         FRAME_COUNT_EAR = 0
                 else:
                     FRAME_COUNT_EAR = 0
@@ -183,7 +183,7 @@ def on_open(ws):
                         resultYawning.release()
                         print("YOU ARE YAWNING")
                         print(getDateName())
-                        sendDjango('Pi 1', 'Yawning', ws)
+                        sendDjango('Pi 1', 'Yawning', SENDDATETIME, ws)
                         FRAME_COUNT_MAR = 0
                     
                 else:
