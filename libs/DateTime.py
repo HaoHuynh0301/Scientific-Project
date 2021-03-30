@@ -5,7 +5,7 @@ class DateTime:
     def __init__(self):
         super().__init__()
         
-    def getDateName(self):
+    def getDateNameFormat(self):
         now = datetime.now()
         dt_string = now.strftime("%d/%m/%Y %H:%M:%S")
         dt_string = dt_string.replace("/", "")

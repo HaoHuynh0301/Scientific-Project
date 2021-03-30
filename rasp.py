@@ -6,6 +6,7 @@ except ImportError:
 from model.EAR_calculator import *
 from libs.VideoActivity import VideoActivity
 from libs.Socket import Socket
+from imutils import face_utils
 from libs.DateTime import DateTime
 from imutils.video import VideoStream
 from datetime import datetime
@@ -14,58 +15,56 @@ import json
 import dlib
 import cv2
 import imutils
-import random
 
+DATETIME = DateTime()
+TMPDATETIME = ''
+MODEL_PATH = "model/custom_landmark_model.dat"
+GENERAL_VIDEO_PATH = 'model/general/' + DATETIME.getDateNameFormat() + '.avi'
 SENCOND_SEND = 10
 DEVICES_NAME = 'Pi 1'
-VDA = VideoActivity()
-DATETIME = DateTime()
 
 def on_message(ws, message):
     data = json.loads(message)
     print(data)
-    list_frame = []
-    result = "";
+    listFrame = []
     send = False
     
     if data['command'] == 'getInfo':
         try:
-            result = VDA.receive_requestcut("24032021135135", 'yawning')
+            VIDEO_FUNCTION = VideoActivity()
+            listFrame = VIDEO_FUNCTION.receiveRequestcut(data["time"], data["activity"])
             send = True
         except Exception as e:
-            print('[INFOR] Rasp4_1:'+ str(e))         
+            print('[INFOR] Rasp1:'+ str(e))         
             
         if send:       
             try:
-                # for i in list_frame:     
+                # for i in listFrame:     
                     ws.send(
                         json.dumps({
                             'command': 'send_video',
                             'name': DEVICES_NAME,
-                            'frame': result#Use for frame in list_frame to display whole video
+                            'frames': listFrame#Use for frame in list_frame to display whole video
                         })
                     )
                     time.sleep(0.5)  
 
             except Exception as e:
-                print("[INFOR] Rasp4_2: " + str(e))
+                print("[INFOR]" + str(e))
 
 def on_error(ws, error):
-    print(error)
-    # pass
+    print('[INFOR]: Socket Error: ' + error)
 
 def on_close(ws):
     print("### closed ###")
 
 def on_open(ws):
     def run(*args):
-        
+        GENERAL_VIDEO = VideoActivity(GENERAL_VIDEO_PATH)
         SOCKET = Socket(ws)
         lastActive = datetime.now()
         send = False
-        # send = False
         COUNT_FRAME = 0
-        SENDDATETIME = ""
 
         frameDict = {}
         lastActiveCheck = datetime.now()
@@ -84,9 +83,8 @@ def on_open(ws):
 
         MAR_THRESHOLD = 10
 
-        CONSECUTIVE_FRAMES = 20
+        CONSECUTIVE_FRAMES = 50
         CONSECUTIVE_FRAMES_MOUTH = 20
-        model_path = 'model/custom_landmark_model.dat'
 
         # Initialize two counters
         BLINK_COUNT = 0
@@ -97,7 +95,7 @@ def on_open(ws):
         # Now, intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
         print("[INFO]: Loading the predictor ...")
         detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor(model_path)
+        predictor = dlib.shape_predictor(MODEL_PATH)
 
         vs = VideoStream(src=0, resolution=(1280, 720)).start() 
         # vs = cv2.VideoCapture(0)#usePiCamera=True
@@ -106,11 +104,6 @@ def on_open(ws):
         count_yawn = 0
 
         print("[INFO]: Predictor is ready!")
-        
-        fps = 10
-        size = (720, 480)
-        #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
-        result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
         
         try:
             ws.send(
@@ -137,8 +130,8 @@ def on_open(ws):
         while True:
             frame = vs.read()
             frame = cv2.resize(frame, (720, 480))
-            result.write(frame)
-            COUNT_FRAME = COUNT_FRAME+1
+            GENERAL_VIDEO.writeFrames(frame)
+            COUNT_FRAME = COUNT_FRAME + 1
 
             frame = imutils.resize(frame, width=300)
             (h, w) = frame.shape[:2]
@@ -168,27 +161,25 @@ def on_open(ws):
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        SOCKET.sendDjango('Pi 1', 'Drowsiness', SENDDATETIME, ws)
+                        SOCKET.sendToDjango('Pi 1', 'drowsiness', DATETIME.getDateNameFormat(), ws)
                         FRAME_COUNT_EAR = 0
                 else:
                     FRAME_COUNT_EAR = 0
 
                 if MAR > MAR_THRESHOLD:
-                    if FRAME_COUNT_MAR == 0:
-                        fps = 10
-                        size = (720, 480)
-                        SENDDATETIME = DATETIME.getDateName()
-                        #result = cv2.VideoWriter('raspberrypi.avi', cv2.VideoWriter_fourcc(*'XVID'), fps, size)
-                        resultYawning = cv2.VideoWriter('media/yawning' + SENDDATETIME + '.avi', cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
                     
+                    if FRAME_COUNT_MAR == 0:
+                        videoYawning = VideoActivity('media/detail/yawning' + DATETIME.getDateNameFormat() + '.avi')
+                        TMPDATETIME = DATETIME.getDateNameFormat()
+                        
                     FRAME_COUNT_MAR += 1
                     frame = cv2.resize(frame, (720, 480))
-                    resultYawning.write(frame)    
+                    videoYawning.writeFrames(frame)    
                       
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
-                        resultYawning.release()
+                        videoYawning.releaseVideo()
                         print("YOU ARE YAWNING")
-                        SOCKET.sendDjango('Pi 1', 'Yawning', SENDDATETIME, ws)
+                        SOCKET.sendToDjango('Pi 1', 'yawning', TMPDATETIME, ws)
                         FRAME_COUNT_MAR = 0
                     
                 else:
@@ -201,7 +192,7 @@ def on_open(ws):
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
                     pass
                     # print("No eyes")
-                    # SOCKET.sendDjango('Pi 1', 'No eyes detected', ws)
+                    # SOCKET.sendToDjango('Pi 1', 'No eyes detected', ws)
 
             if send:
                 try:
@@ -219,16 +210,15 @@ def on_open(ws):
                 except Exception as e:
                     print(str(e))
                                 
-        result.release()
+        GENERAL_VIDEO.releaseVideo()
         print("thread terminating...")
         ws.close()
     thread.start_new_thread(run, ())
 
 if __name__ == "__main__":
-    # websocket.enableTrace(True)
-    # # # url = 'ws://10.10.34.158:8000/ws/realtimeData/'
+    url = 'ws://10.10.36.35:8000/ws/realtime/'
     # url = 'ws://192.168.123.147:8000/ws/realtime/'
-    url = 'ws://localhost:8000/ws/realtimeData/'
+    # url = 'ws://localhost:8000/ws/realtimeData/'
 
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
