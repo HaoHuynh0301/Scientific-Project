@@ -11,7 +11,6 @@ class Socket:
         pp = json.dumps({
             "command": 'alert',
             'name': name,
-            # 'time': str(datetime.now()),
             'time': senddatetime,
             'activity': message,
         })

@@ -18,8 +18,8 @@ import imutils
 
 DATETIME = DateTime()
 TMPDATETIME = ''
-MODEL_PATH = "model/custom_landmark_model.dat"
-GENERAL_VIDEO_PATH = 'model/general/' + DATETIME.getDateNameFormat() + '.avi'
+MODEL_PATH = 'model/custom_landmark_model.dat'
+GENERAL_VIDEO_PATH = 'model/general/rasp.avi'
 SENCOND_SEND = 10
 DEVICES_NAME = 'Pi 1'
 
@@ -32,7 +32,7 @@ def on_message(ws, message):
     if data['command'] == 'getInfo':
         try:
             VIDEO_FUNCTION = VideoActivity()
-            listFrame = VIDEO_FUNCTION.receiveRequestcut(data["time"], data["activity"])
+            listFrame = VIDEO_FUNCTION.receiveRequestcut(data['time'], data['activity'])
             send = True
         except Exception as e:
             print('[INFOR] Rasp1:'+ str(e))         
@@ -216,9 +216,9 @@ def on_open(ws):
     thread.start_new_thread(run, ())
 
 if __name__ == "__main__":
-    url = 'ws://10.10.36.35:8000/ws/realtime/'
+    # url = 'ws://10.10.36.35:8000/ws/realtime/'
     # url = 'ws://192.168.123.147:8000/ws/realtime/'
-    # url = 'ws://localhost:8000/ws/realtimeData/'
+    url = 'ws://localhost:8000/ws/realtimeData/'
 
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
