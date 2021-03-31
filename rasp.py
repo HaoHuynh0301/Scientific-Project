@@ -16,12 +16,12 @@ import dlib
 import cv2
 import imutils
 
+DEVICES_NAME = 'Pi 1'
 DATETIME = DateTime()
 TMPDATETIME = ''
 MODEL_PATH = 'model/custom_landmark_model.dat'
-GENERAL_VIDEO_PATH = 'model/general/rasp.avi'
+GENERAL_VIDEO_PATH = 'media/general/rasp' + DEVICES_NAME + '.avi'
 SENCOND_SEND = 10
-DEVICES_NAME = 'Pi 1'
 
 def on_message(ws, message):
     data = json.loads(message)
@@ -39,21 +39,20 @@ def on_message(ws, message):
             
         if send:       
             try:
-                # for i in listFrame:     
-                    ws.send(
-                        json.dumps({
-                            'command': 'send_video',
-                            'name': DEVICES_NAME,
-                            'frames': listFrame#Use for frame in list_frame to display whole video
-                        })
-                    )
-                    time.sleep(0.5)  
+                ws.send(
+                    json.dumps({
+                        'command': 'send_video',
+                        'name': DEVICES_NAME,
+                        'frames': listFrame#Use for frame in list_frame to display whole video
+                    })
+                )
+                time.sleep(0.5)  
 
             except Exception as e:
                 print("[INFOR]" + str(e))
 
 def on_error(ws, error):
-    print('[INFOR]: Socket Error: ' + error)
+    print('[Socket Error]: ' + error)
 
 def on_close(ws):
     print("### closed ###")
@@ -99,7 +98,7 @@ def on_open(ws):
 
         vs = VideoStream(src=0, resolution=(1280, 720)).start() 
         # vs = cv2.VideoCapture(0)#usePiCamera=True
-        time.sleep(1.0)
+        time.sleep(0.5)
         count_sleep = 0
         count_yawn = 0
 
@@ -179,7 +178,7 @@ def on_open(ws):
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
                         videoYawning.releaseVideo()
                         print("YOU ARE YAWNING")
-                        SOCKET.sendToDjango('Pi 1', 'yawning', TMPDATETIME, ws)
+                        # SOCKET.sendToDjango('Pi 1', 'yawning', TMPDATETIME, ws)
                         FRAME_COUNT_MAR = 0
                     
                 else:

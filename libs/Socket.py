@@ -18,5 +18,15 @@ class Socket:
             temp_ws.send(pp)
         except Exception as e:
             print("[INFOR]: " + str(e))
-        
+            
+    def virtualWebserver(self, time, activity, ws):
+        pp = json.dumps({
+            'command': 'getInfo',
+            'time': time,
+            'activity': activity
+        })
+        try:
+            ws.send(pp)
+        except Exception as e:
+            print("[INFOR]: " + str(e))
     
