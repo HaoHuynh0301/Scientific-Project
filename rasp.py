@@ -178,7 +178,7 @@ def on_open(ws):
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
                         videoYawning.releaseVideo()
                         print("YOU ARE YAWNING")
-                        # SOCKET.sendToDjango('Pi 1', 'yawning', TMPDATETIME, ws)
+                        SOCKET.sendToDjango('Pi 1', 'yawning', TMPDATETIME, ws)
                         FRAME_COUNT_MAR = 0
                     
                 else:
@@ -216,8 +216,8 @@ def on_open(ws):
 
 if __name__ == "__main__":
     # url = 'ws://10.10.36.35:8000/ws/realtime/'
-    # url = 'ws://192.168.123.147:8000/ws/realtime/'
-    url = 'ws://localhost:8000/ws/realtimeData/'
+    url = 'ws://192.168.123.147:8000/ws/realtime/'
+    # url = 'ws://localhost:8000/ws/realtimeData/'
 
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
