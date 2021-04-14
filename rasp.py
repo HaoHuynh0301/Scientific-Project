@@ -168,8 +168,8 @@ def on_open(ws):
                 if MAR > MAR_THRESHOLD:
                     
                     if FRAME_COUNT_MAR == 0:
-                        videoYawning = VideoActivity('media/detail/yawning' + DATETIME.getDateNameFormat() + '.avi')
-                        TMPDATETIME = DATETIME.getDateNameFormat()
+                        videoYawning = VideoActivity('media/detail/yawning' + DATETIME.getSendingDateNameFormat() + '.avi')
+                        TMPDATETIME, SENDING_DATETIME = DATETIME.getDateNameFormat()
                         
                     FRAME_COUNT_MAR += 1
                     frame = cv2.resize(frame, (720, 480))
@@ -178,7 +178,7 @@ def on_open(ws):
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
                         videoYawning.releaseVideo()
                         print("YOU ARE YAWNING")
-                        SOCKET.sendToDjango('Pi 1', 'yawning', TMPDATETIME, ws)
+                        SOCKET.sendToDjango('Pi 1', 'yawning', SENDING_DATETIME, ws)
                         FRAME_COUNT_MAR = 0
                     
                 else:
