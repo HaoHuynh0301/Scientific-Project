@@ -5,17 +5,18 @@ import imagezmq
 import argparse
 import imutils
 import cv2
+import os
 
-# initialize the ImageHub object
-imageHub = imagezmq.ImageHub()
+cap = cv2.VideoCapture('/Users/macos/Documents/Scientific-Project/media/detail/yawning20210420131000746252.avi')
 
-while True:
-    (rpiName, frame) = imageHub.recv_image()
-    imageHub.send_reply(b'OK')
+if (cap.isOpened() == False):
+    print("Error opening video stream or file")
+
+while(cap.isOpened()):
+    ret, frame = cap.read()
     cv2.imshow("Test", frame)
     key = cv2.waitKey(1) & 0xFF
     if key == ord("q"):
-    		break
-
+    	break
 
 cv2.destroyAllWindows()

@@ -32,7 +32,8 @@ def on_message(ws, message):
     if data['command'] == 'getInfo':
         try:
             VIDEO_FUNCTION = VideoActivity()
-            listFrame = VIDEO_FUNCTION.receiveRequestcut(data['time'], data['activity'])
+            alertTime = DATETIME.getSendingDateNameFormat(data['time'])
+            listFrame = VIDEO_FUNCTION.receiveRequestcut(alertTime, data['activity'])
             send = True
         except Exception as e:
             print('[INFOR] Rasp1:'+ str(e))         
@@ -168,8 +169,9 @@ def on_open(ws):
                 if MAR > MAR_THRESHOLD:
                     
                     if FRAME_COUNT_MAR == 0:
-                        videoYawning = VideoActivity('media/detail/yawning' + DATETIME.getSendingDateNameFormat() + '.avi')
-                        TMPDATETIME, SENDING_DATETIME = DATETIME.getDateNameFormat()
+                        saveTime, sendTime = DATETIME.getDateNameFormat()
+                        print(saveTime + " " + sendTime)
+                        videoYawning = VideoActivity('media/detail/yawning' + saveTime + '.avi')
                         
                     FRAME_COUNT_MAR += 1
                     frame = cv2.resize(frame, (720, 480))
@@ -178,7 +180,7 @@ def on_open(ws):
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
                         videoYawning.releaseVideo()
                         print("YOU ARE YAWNING")
-                        SOCKET.sendToDjango('Pi 1', 'yawning', SENDING_DATETIME, ws)
+                        SOCKET.sendToDjango('Pi 1', 'yawning', sendTime, ws)
                         FRAME_COUNT_MAR = 0
                     
                 else:
@@ -216,7 +218,7 @@ def on_open(ws):
 
 if __name__ == "__main__":
     # url = 'ws://10.10.36.35:8000/ws/realtime/'
-    url = 'ws://192.168.123.147:8000/ws/realtime/'
+    url = 'ws://localhost:8000/ws/realtime/'
     # url = 'ws://localhost:8000/ws/realtimeData/'
 
     ws = websocket.WebSocketApp(url,

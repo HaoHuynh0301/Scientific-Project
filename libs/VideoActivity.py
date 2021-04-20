@@ -2,6 +2,7 @@ from moviepy.video.io.ffmpeg_tools import ffmpeg_extract_subclip
 from moviepy.editor import *
 from imutils import build_montages
 from imutils import face_utils
+from imutils.video import VideoStream
 import os
 import base64
 import imutils
@@ -33,7 +34,10 @@ class VideoActivity:
     def receiveRequestcut(self, tmpDateTime, message):
         ResultStr = []
         fframe = ""
-        cap = cv2.VideoCapture("/Users/macos/Documents/ScientificProject/media/detail/" + message + tmpDateTime + ".avi")
+        cap = cv2.VideoCapture('/Users/macos/Documents/Scientific-Project/media/detail/' + message + tmpDateTime + '.avi')
+        if (cap.isOpened() == False):
+            print("Error opening video stream or file")
+
         while(cap.isOpened()):
             ret, frame = cap.read()
             if ret == False:
