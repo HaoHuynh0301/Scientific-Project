@@ -27,14 +27,13 @@ class VideoActivity:
     def createVideo(self):
         fps = 10
         size = (720, 480)
-        #result = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
-        writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
+        result = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
         return writter
     
     def receiveRequestcut(self, tmpDateTime, message):
         ResultStr = []
         fframe = ""
-        cap = cv2.VideoCapture('/Users/macos/Documents/Scientific-Project/media/detail/' + message + tmpDateTime + '.avi')
+        cap = cv2.VideoCapture('/media/detail/'+ message + "/" + message + tmpDateTime + '.avi')
         if (cap.isOpened() == False):
             print("Error opening video stream or file")
 

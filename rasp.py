@@ -27,18 +27,18 @@ def on_message(ws, message):
     data = json.loads(message)
     print(data)
     listFrame = []
-    send = False
+    sendImage = False
     
     if data['command'] == 'getInfo':
         try:
             VIDEO_FUNCTION = VideoActivity()
             alertTime = DATETIME.getSendingDateNameFormat(data['time'])
             listFrame = VIDEO_FUNCTION.receiveRequestcut(alertTime, data['activity'])
-            send = True
+            sendImage = True
         except Exception as e:
             print('[INFOR] Rasp1:'+ str(e))         
             
-        if send:       
+        if sendImage:       
             try:
                 ws.send(
                     json.dumps({
@@ -157,11 +157,21 @@ def on_open(ws):
                 MAR = mouth_aspect_ratio(mouth)
 
                 if EAR < EAR_THRESHOLD:
-                    FRAME_COUNT_EAR += 1
-                    cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
-                    cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
+                    if FRAME_COUNT_EAR == 0:
+                        saveTime, sendTime = DATETIME.getDateNameFormat()
+                        cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
+                        cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
+                        FRAME_COUNT_EAR += 1
+                        writterDrowsiness = VideoActivity('media/detail/drowsiness/drowsiness' + saveTime + '.avi')
+
+                    else:
+                        FRAME_COUNT_EAR += 1
+                        frame = cv2.resize(frame, (720, 480))
+                        writterDrowsiness.writeFrames(frame)
+
                     if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        SOCKET.sendToDjango('Pi 1', 'drowsiness', DATETIME.getDateNameFormat(), ws)
+                        print("DROWSINESS")
+                        SOCKET.sendToDjango('Pi 1', 'drowsiness', sendTime, ws)
                         FRAME_COUNT_EAR = 0
                 else:
                     FRAME_COUNT_EAR = 0
@@ -170,15 +180,14 @@ def on_open(ws):
                     
                     if FRAME_COUNT_MAR == 0:
                         saveTime, sendTime = DATETIME.getDateNameFormat()
-                        print(saveTime + " " + sendTime)
-                        videoYawning = VideoActivity('media/detail/yawning' + saveTime + '.avi')
+                        writterYawning = VideoActivity('media/detail/yawning/yawning' + saveTime + '.avi')
                         
                     FRAME_COUNT_MAR += 1
                     frame = cv2.resize(frame, (720, 480))
-                    videoYawning.writeFrames(frame)    
+                    writterYawning.writeFrames(frame)    
                       
                     if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
-                        videoYawning.releaseVideo()
+                        writterYawning.releaseVideo()
                         print("YOU ARE YAWNING")
                         SOCKET.sendToDjango('Pi 1', 'yawning', sendTime, ws)
                         FRAME_COUNT_MAR = 0
@@ -191,8 +200,7 @@ def on_open(ws):
                 FRAME_COUNT_DISTR += 1
 
                 if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                    pass
-                    # print("No eyes")
+                    print("NO EYES")
                     # SOCKET.sendToDjango('Pi 1', 'No eyes detected', ws)
 
             if send:
