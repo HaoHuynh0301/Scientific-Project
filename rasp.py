@@ -61,8 +61,13 @@ def on_message(ws, message):
     if data['piDeviceID'] == ID:
         try:
             VIDEO_FUNCTION = VideoActivity()
+<<<<<<< HEAD
             #alertTime = DATETIME.getSendingDateNameFormat(data['time'])
             listFrame = VIDEO_FUNCTION.receiveRequestcut('20062021113507', 'yawning')
+=======
+            alertTime = DATETIME.getSendingDateNameFormat(data['time'])
+            listFrame = VIDEO_FUNCTION.receiveRequestcut(alertTime, data['activity'])
+>>>>>>> bbaee747f697fe14ad6ad30700d7d3db2f72049b
             sendImage = True
         except Exception as e:
             print('[INFOR] Rasp1:'+ str(e))         
@@ -139,6 +144,7 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
              SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
          count = 0
         
+<<<<<<< HEAD
         #Get frames
         frame = vs.read()
         COUNT_FRAME = COUNT_FRAME + 1
@@ -181,15 +187,83 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
                     if connect:
                         SOCKET.sendToDjango('Drowsiness', sendTime, ws)
                     writterDrowsiness.releaseVideo()
+=======
+        while True:
+            frame = vs.read()
+            frame = cv2.resize(frame, (720, 480))
+            GENERAL_VIDEO.writeFrames(frame)
+            COUNT_FRAME = COUNT_FRAME + 1
+
+            frame = imutils.resize(frame, width=300)
+            (h, w) = frame.shape[:2]
+            rects = detector(frame, 0)
+            
+            if len(rects) > 0:
+                rect = get_max_area_rect(rects)
+                shape = predictor(frame, rect)
+                shape = face_utils.shape_to_np(shape)
+
+                leftEye = shape[0:6]
+                rightEye = shape[6:12]
+                mouth = shape[12:32] 
+
+                leftEAR = eye_aspect_ratio(leftEye)
+                rightEAR = eye_aspect_ratio(rightEye)
+                EAR = (leftEAR + rightEAR) / 2.0
+                leftEyeHull = cv2.convexHull(leftEye)
+                rightEyeHull = cv2.convexHull(rightEye)
+                cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
+                cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
+                cv2.drawContours(frame, [mouth], -1, (0, 255, 0), 1)
+                MAR = mouth_aspect_ratio(mouth)
+
+                if EAR < EAR_THRESHOLD:
+                    if FRAME_COUNT_EAR == 0:
+                        saveTime, sendTime = DATETIME.getDateNameFormat()
+                        cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
+                        cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
+                        FRAME_COUNT_EAR += 1
+                        writterDrowsiness = VideoActivity('media/detail/drowsiness/drowsiness' + saveTime + '.avi')
+
+                    else:
+                        FRAME_COUNT_EAR += 1
+                        frame = cv2.resize(frame, (720, 480))
+                        writterDrowsiness.writeFrames(frame)
+
+                    if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
+                        print("DROWSINESS")
+                        SOCKET.sendToDjango('Pi 1', 'drowsiness', sendTime, ws)
+                        FRAME_COUNT_EAR = 0
+                else:
+>>>>>>> bbaee747f697fe14ad6ad30700d7d3db2f72049b
                     FRAME_COUNT_EAR = 0
             else:
                 FRAME_COUNT_EAR = 0
 
+<<<<<<< HEAD
             if MAR > MAR_THRESHOLD:
                 if FRAME_COUNT_MAR == 0:
                     saveTime, sendTime = DATETIME.getDateNameFormat()
                     writterYawning = VideoActivity('media/detail/yawning/yawning' + saveTime + '.avi')
                     FRAME_COUNT_MAR += 1
+=======
+                if MAR > MAR_THRESHOLD:
+                    
+                    if FRAME_COUNT_MAR == 0:
+                        saveTime, sendTime = DATETIME.getDateNameFormat()
+                        writterYawning = VideoActivity('media/detail/yawning/yawning' + saveTime + '.avi')
+                        
+                    FRAME_COUNT_MAR += 1
+                    frame = cv2.resize(frame, (720, 480))
+                    writterYawning.writeFrames(frame)    
+                      
+                    if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
+                        writterYawning.releaseVideo()
+                        print("YOU ARE YAWNING")
+                        SOCKET.sendToDjango('Pi 1', 'yawning', sendTime, ws)
+                        FRAME_COUNT_MAR = 0
+                    
+>>>>>>> bbaee747f697fe14ad6ad30700d7d3db2f72049b
                 else:
                     FRAME_COUNT_MAR += 1
                     writterYawning.writeFrames(frame)
@@ -202,6 +276,7 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
                     FRAME_COUNT_MAR = 0
                 
             else:
+<<<<<<< HEAD
                 FRAME_COUNT_MAR = 0
 
             FRAME_COUNT_DISTR = 0
@@ -220,10 +295,49 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
     print("Thread terminating...")
     
     if connect:
+=======
+                FRAME_COUNT_DISTR += 1
+
+                if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
+                    print("NO EYES")
+                    # SOCKET.sendToDjango('Pi 1', 'No eyes detected', ws)
+
+            if send:
+                try:
+                    ws.send(
+                        json.dumps(
+                            {
+                                "command": "updateActive",
+                                "name": DEVICES_NAME,
+                                "time": str(datetime.now()),
+                            }
+                        )
+                    )
+                    send = False
+                    lastActive = datetime.now()
+                except Exception as e:
+                    print(str(e))
+                                
+        GENERAL_VIDEO.releaseVideo()
+        print("thread terminating...")
+>>>>>>> bbaee747f697fe14ad6ad30700d7d3db2f72049b
         ws.close()
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     try:
         connect_websocket()
     except Exception as err:
         print("[INFOR]: " + err)
+=======
+    # url = 'ws://10.10.36.35:8000/ws/realtime/'
+    url = 'ws://localhost:8000/ws/realtime/'
+    # url = 'ws://localhost:8000/ws/realtimeData/'
+
+    ws = websocket.WebSocketApp(url,
+                                on_message=on_message,
+                                on_error=on_error,
+                                on_close=on_close)
+    ws.on_open = on_open
+    ws.run_forever()
+>>>>>>> bbaee747f697fe14ad6ad30700d7d3db2f72049b
