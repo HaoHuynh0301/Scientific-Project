@@ -26,28 +26,15 @@ class VideoActivity:
         self.videoWritter.release()
         
     def createVideo(self):
-<<<<<<< HEAD
         fps = 10.0
         size = (225,300)
         writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
-=======
-        fps = 10
-        size = (720, 480)
-        result = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
->>>>>>> bbaee747f697fe14ad6ad30700d7d3db2f72049b
         return writter
     
     def receiveRequestcut(self, tmpDateTime, message):
         ResultStr = []
         fframe = ""
-<<<<<<< HEAD
         cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".avi")      
-=======
-        cap = cv2.VideoCapture('/media/detail/'+ message + "/" + message + tmpDateTime + '.avi')
-        if (cap.isOpened() == False):
-            print("Error opening video stream or file")
-
->>>>>>> bbaee747f697fe14ad6ad30700d7d3db2f72049b
         while(cap.isOpened()):
             ret, frame = cap.read()
             if ret == False:
