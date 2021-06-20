@@ -18,54 +18,27 @@ class VideoActivity:
             self.videoWritter = self.createVideo()
             
     def writeFrames(self, frame):
+        frame = cv2.resize(frame, (225,300))
         self.videoWritter.write(frame)
         
     def releaseVideo(self):
         self.videoWritter.release()
         
     def createVideo(self):
-        fps = 10
-        size = (720, 480)
-        #result = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
-        writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc('M','J','P','G'), fps, size)
+        fps = 10.0
+        size = (225,300)
+        writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
         return writter
     
     def receiveRequestcut(self, tmpDateTime, message):
         ResultStr = []
         fframe = ""
-        cap = cv2.VideoCapture("/Users/macos/Documents/ScientificProject/media/detail/" + message + tmpDateTime + ".avi")
+        cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".avi")      
         while(cap.isOpened()):
             ret, frame = cap.read()
             if ret == False:
                 break
-            frame = cv2.resize(frame, (100, 100))
+            frame = cv2.resize(frame, (640, 464))
             fframe = base64.b64encode(cv2.imencode('.jpg', frame)[1]).decode()
             ResultStr.append(fframe)
         return ResultStr
-    
-    def receiveRequestcutTerm(self, temp_start_time, temp_end_time):
-        ResultStr = []
-        try:
-            temp_video = VideoFileClip("/Users/macos/Documents/Ras/raspberrypi.avi").subclip(temp_start_time, temp_end_time)
-            n_frames = temp_video.reader.nframes
-            for temp_video_frame in range(0, n_frames):
-                fframe = ""
-                frame = temp_video.get_frame(temp_video_frame)  
-                fframe = base64.b64encode(cv2.imencode('.jpg', frame)[1]).decode()
-                ResultStr.append(fframe)
-                
-            print("[INFRO]: Cutting video successfully")
-            return fframe
-        except Exception as e:
-            print('[INFOR] Functions: ' + str(e))
-    
-    def deleteVideo(self, temp_FLAT, temp_size, temp_filepath):
-        if temp_FLAT == 1:
-            if temp_size >= 100:
-                try:
-                    os.remove(temp_filepath)
-                    print('[INFOR]: Remove video successfully!!!')
-                except Exception as e:
-                    print('[INFOR]: '+str(e))
-        else:
-            print('[INFOR]: Delete Unsuccessfully!!!')

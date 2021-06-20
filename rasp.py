@@ -1,4 +1,5 @@
 import websocket
+import socket
 try:
     import thread
 except ImportError:
@@ -10,40 +11,70 @@ from imutils import face_utils
 from libs.DateTime import DateTime
 from imutils.video import VideoStream
 from datetime import datetime
+import wiringpi as wiringpi
+from time import sleep
 import time
 import json
 import dlib
 import cv2
 import imutils
 
-DEVICES_NAME = 'Pi 1'
+#Fils, and folders intialize
+HOSTNAME = socket.gethostname()
+IP_ADDRESS = socket.gethostbyname(HOSTNAME)
+COMPANY_ROOM_CODE = "lsRHGGT111"
+ID = "1"
 DATETIME = DateTime()
 TMPDATETIME = ''
 MODEL_PATH = 'model/custom_landmark_model.dat'
-GENERAL_VIDEO_PATH = 'media/general/rasp' + DEVICES_NAME + '.avi'
-SENCOND_SEND = 10
+
+# Now, intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
+print("[INFO]: Loading the predictor ...")
+detector = dlib.get_frontal_face_detector()
+predictor = dlib.shape_predictor(MODEL_PATH)
+vs = VideoStream(usePiCamera=True, resolution = (320,240)).start()
+time.sleep(1.0)
+print("[INFO]: Predictor is ready!")
+
+#MQ3 sensor intialize
+wiringpi.wiringPiSetupGpio()
+wiringpi.pinMode(25, 0)
+count = 0
+print("[INFO]: MQ3 SENSOR is ready!")
+
+    
+def connect_websocket():
+    url = f"ws://192.168.1.4:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/"
+    ws = websocket.WebSocketApp(url,
+                                on_message=on_message,
+                                on_error=on_error,
+                                on_close=on_close)
+    ws.on_open = on_open
+    ws.run_forever()
 
 def on_message(ws, message):
     data = json.loads(message)
     print(data)
     listFrame = []
-    send = False
+    sendImage = False
     
-    if data['command'] == 'getInfo':
+    if data['piDeviceID'] == ID:
         try:
             VIDEO_FUNCTION = VideoActivity()
-            listFrame = VIDEO_FUNCTION.receiveRequestcut(data['time'], data['activity'])
-            send = True
+            #alertTime = DATETIME.getSendingDateNameFormat(data['time'])
+            listFrame = VIDEO_FUNCTION.receiveRequestcut('20062021113507', 'yawning')
+            sendImage = True
         except Exception as e:
             print('[INFOR] Rasp1:'+ str(e))         
             
-        if send:       
+        if sendImage:       
             try:
                 ws.send(
                     json.dumps({
-                        'command': 'send_video',
-                        'name': DEVICES_NAME,
-                        'frames': listFrame#Use for frame in list_frame to display whole video
+                        'command': 'sendImgToBrowser',
+                        'messageType': 'sendImg',
+                        'driveID': data["driveID"],
+                        'frame': listFrame,
                     })
                 )
                 time.sleep(0.5)  
@@ -55,173 +86,144 @@ def on_error(ws, error):
     print('[Socket Error]: ' + error)
 
 def on_close(ws):
-    print("### closed ###")
+    print("[SOCKET INFORMATION]: Can not connect to Websocket ...")
+    detecteOparation(vs, detector, predictor, count, ws, False)
 
 def on_open(ws):
     def run(*args):
-        GENERAL_VIDEO = VideoActivity(GENERAL_VIDEO_PATH)
+        print("[SOCKET INFORMATION]: Connect to Websocket ...")
+        detecteOparation(vs, detector, predictor, count, ws, True)
+    thread.start_new_thread(run, ()) 
+
+def detecteOparation(vs, detector, predictor, count, ws, connect):
+    #Model, saving video path intialize
+    GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.avi"
+    if connect:
+        GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.avi"
         SOCKET = Socket(ws)
-        lastActive = datetime.now()
-        send = False
-        COUNT_FRAME = 0
 
-        frameDict = {}
-        lastActiveCheck = datetime.now()
+    GENERAL_VIDEO = VideoActivity(GENERAL_VIDEO_PATH)
+    COUNT_FRAME = 0
 
-        # Predict and display
-        ESTIMATED_NUM_PIS = 4
-        ACTIVE_CHECK_PERIOD = 10
-        ACTIVE_CHECK_SECONDS = 1
+    EAR_THRESHOLD = 0.2
 
-        # parameter
-        distracton_initlized = False
-        eye_initialized = False
-        mouth_initialized = False
+    MAR_THRESHOLD = 10
 
-        EAR_THRESHOLD = 0.2
+    CONSECUTIVE_FRAMES = 20
+    CONSECUTIVE_FRAMES_MOUTH = 7
 
-        MAR_THRESHOLD = 10
-
-        CONSECUTIVE_FRAMES = 50
-        CONSECUTIVE_FRAMES_MOUTH = 20
-
-        # Initialize two counters
-        BLINK_COUNT = 0
-        FRAME_COUNT_EAR = 0
-        FRAME_COUNT_MAR = 0
-        FRAME_COUNT_DISTR = 0
-
-        # Now, intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
-        print("[INFO]: Loading the predictor ...")
-        detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor(MODEL_PATH)
-
-        vs = VideoStream(src=0, resolution=(1280, 720)).start() 
-        # vs = cv2.VideoCapture(0)#usePiCamera=True
-        time.sleep(0.5)
-        count_sleep = 0
-        count_yawn = 0
-
-        print("[INFO]: Predictor is ready!")
-        
-        try:
-            ws.send(
-                json.dumps(
-                    {
-                        "command": "updateActive",
-                        "name": DEVICES_NAME,
-                        "time": str(lastActive),
-                    }
-                )
-            )
-        except Exception as e:
-            print(str(e))
-
-        if datetime.now().minute - lastActive.minute >= 1:
-            send = True
-
+    # Initialize two counters
+    YAWN_COUNT = 0
+    FRAME_COUNT_EAR = 0
+    FRAME_COUNT_MAR = 0
+    FRAME_COUNT_DISTR = 0
+    
+    #Websocket connection detection
+    FRAME_COUNT_CONNECT = 0
+    if connect:
+        print("[INFOR]: Start online dectecting ...")
+    else:
+        print("[INFOR]: Start offline dectecting ...")
+    
+    while True:
+        #Alcolho detection
+        my_input=wiringpi.digitalRead(25)
+        if(my_input):
+         pass
         else:
-            if datetime.now().second - lastActive.second >= 2:
-                send = True
-                
-        Flag = False
+         count=count+1
+        if count == 5:
+         sendTime = str(datetime.now())
+         print("[DETECTION INFOR]: Alcohol Detected")
+         if connect:
+             SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
+         count = 0
         
-        while True:
-            frame = vs.read()
-            frame = cv2.resize(frame, (720, 480))
-            GENERAL_VIDEO.writeFrames(frame)
-            COUNT_FRAME = COUNT_FRAME + 1
+        #Get frames
+        frame = vs.read()
+        COUNT_FRAME = COUNT_FRAME + 1
+        frame = imutils.resize(frame, width=300)
+        GENERAL_VIDEO.writeFrames(frame)
+        (h, w) = frame.shape[:2]
+        rects = detector(frame, 0)
 
-            frame = imutils.resize(frame, width=300)
-            (h, w) = frame.shape[:2]
-            rects = detector(frame, 0)
-            
-            if len(rects) > 0:
-                rect = get_max_area_rect(rects)
-                shape = predictor(frame, rect)
-                shape = face_utils.shape_to_np(shape)
+        if len(rects) > 0:
+            rect = get_max_area_rect(rects)
+            shape = predictor(frame, rect)
+            shape = face_utils.shape_to_np(shape)
 
-                leftEye = shape[0:6]
-                rightEye = shape[6:12]
-                mouth = shape[12:32] 
+            leftEye = shape[0:6]
+            rightEye = shape[6:12]
+            mouth = shape[12:32] 
 
-                leftEAR = eye_aspect_ratio(leftEye)
-                rightEAR = eye_aspect_ratio(rightEye)
-                EAR = (leftEAR + rightEAR) / 2.0
-                leftEyeHull = cv2.convexHull(leftEye)
-                rightEyeHull = cv2.convexHull(rightEye)
-                cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-                cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
-                cv2.drawContours(frame, [mouth], -1, (0, 255, 0), 1)
-                MAR = mouth_aspect_ratio(mouth)
+            leftEAR = eye_aspect_ratio(leftEye)
+            rightEAR = eye_aspect_ratio(rightEye)
+            EAR = (leftEAR + rightEAR) / 2.0
+            leftEyeHull = cv2.convexHull(leftEye)
+            rightEyeHull = cv2.convexHull(rightEye)
+            cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
+            cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
+            cv2.drawContours(frame, [mouth], -1, (0, 255, 0), 1)
+            MAR = mouth_aspect_ratio(mouth)
 
-                if EAR < EAR_THRESHOLD:
+            if EAR < EAR_THRESHOLD:
+                if FRAME_COUNT_EAR == 0:
+                    saveTime, sendTime = DATETIME.getDateNameFormat()
+                    writterDrowsiness = VideoActivity('media/detail/drowsiness/drowsiness' + saveTime + '.avi')
+                    FRAME_COUNT_EAR += 1
+                else:
                     FRAME_COUNT_EAR += 1
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
-                    if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
-                        SOCKET.sendToDjango('Pi 1', 'drowsiness', DATETIME.getDateNameFormat(), ws)
-                        FRAME_COUNT_EAR = 0
-                else:
+                    writterDrowsiness.writeFrames(frame)
+                if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
+                    print('[DETECTION INFOR]: DROWSINESS DETECTED !')
+                    if connect:
+                        SOCKET.sendToDjango('Drowsiness', sendTime, ws)
+                    writterDrowsiness.releaseVideo()
                     FRAME_COUNT_EAR = 0
-
-                if MAR > MAR_THRESHOLD:
-                    
-                    if FRAME_COUNT_MAR == 0:
-                        videoYawning = VideoActivity('media/detail/yawning' + DATETIME.getDateNameFormat() + '.avi')
-                        TMPDATETIME = DATETIME.getDateNameFormat()
-                        
-                    FRAME_COUNT_MAR += 1
-                    frame = cv2.resize(frame, (720, 480))
-                    videoYawning.writeFrames(frame)    
-                      
-                    if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES:
-                        videoYawning.releaseVideo()
-                        print("YOU ARE YAWNING")
-                        # SOCKET.sendToDjango('Pi 1', 'yawning', TMPDATETIME, ws)
-                        FRAME_COUNT_MAR = 0
-                    
-                else:
-                    FRAME_COUNT_MAR = 0
-
-                FRAME_COUNT_DISTR = 0
             else:
-                FRAME_COUNT_DISTR += 1
+                FRAME_COUNT_EAR = 0
 
-                if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                    pass
-                    # print("No eyes")
-                    # SOCKET.sendToDjango('Pi 1', 'No eyes detected', ws)
+            if MAR > MAR_THRESHOLD:
+                if FRAME_COUNT_MAR == 0:
+                    saveTime, sendTime = DATETIME.getDateNameFormat()
+                    writterYawning = VideoActivity('media/detail/yawning/yawning' + saveTime + '.avi')
+                    FRAME_COUNT_MAR += 1
+                else:
+                    FRAME_COUNT_MAR += 1
+                    writterYawning.writeFrames(frame)
+                print(FRAME_COUNT_MAR)
+                if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES_MOUTH:
+                    print('[DETECTION INFOR]: YOU ARE YAWNING !')
+                    if connect:
+                        SOCKET.sendToDjango('Yawning', sendTime, ws)
+                    writterYawning.releaseVideo()
+                    FRAME_COUNT_MAR = 0
+                
+            else:
+                FRAME_COUNT_MAR = 0
 
-            if send:
-                try:
-                    ws.send(
-                        json.dumps(
-                            {
-                                "command": "updateActive",
-                                "name": DEVICES_NAME,
-                                "time": str(datetime.now()),
-                            }
-                        )
-                    )
-                    send = False
-                    lastActive = datetime.now()
-                except Exception as e:
-                    print(str(e))
-                                
-        GENERAL_VIDEO.releaseVideo()
-        print("thread terminating...")
+            FRAME_COUNT_DISTR = 0
+        else:
+            FRAME_COUNT_DISTR += 1
+
+            if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
+                print("[DETECTION INFOR]: NO EYES !")
+            
+        #Websocket connection detection
+        FRAME_COUNT_CONNECT += 1
+        if FRAME_COUNT_CONNECT >= 100:
+            connect_websocket()
+            
+    GENERAL_VIDEO.releaseVideo()
+    print("Thread terminating...")
+    
+    if connect:
         ws.close()
-    thread.start_new_thread(run, ())
 
 if __name__ == "__main__":
-    # url = 'ws://10.10.36.35:8000/ws/realtime/'
-    # url = 'ws://192.168.123.147:8000/ws/realtime/'
-    url = 'ws://localhost:8000/ws/realtimeData/'
-
-    ws = websocket.WebSocketApp(url,
-                                on_message=on_message,
-                                on_error=on_error,
-                                on_close=on_close)
-    ws.on_open = on_open
-    ws.run_forever()
+    try:
+        connect_websocket()
+    except Exception as err:
+        print("[INFOR]: " + err)

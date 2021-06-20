@@ -7,12 +7,11 @@ class Socket:
     def __init__(self, ws):
         self.ws = ws
         
-    def sendToDjango(self, name, message, senddatetime, temp_ws):
+    def sendToDjango(self, message, senddatetime, temp_ws):
         pp = json.dumps({
             "command": 'alert',
-            'name': name,
             'time': senddatetime,
-            'activity': message,
+            'name': message,
         })
         try:
             temp_ws.send(pp)
