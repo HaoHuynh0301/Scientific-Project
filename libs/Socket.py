@@ -3,15 +3,14 @@ import websocket
 from datetime import datetime
 
 class Socket:
-    
     def __init__(self, ws):
         self.ws = ws
         
     def sendToDjango(self, message, senddatetime, temp_ws):
         pp = json.dumps({
             "command": 'alert',
-            'time': senddatetime,
             'name': message,
+            'time': senddatetime,
         })
         try:
             temp_ws.send(pp)

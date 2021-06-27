@@ -11,7 +11,8 @@ from imutils import face_utils
 from libs.DateTime import DateTime
 from imutils.video import VideoStream
 from datetime import datetime
-import wiringpi as wiringpi
+from os import system, name
+# import wiringpi as wiringpi
 from time import sleep
 import time
 import json
@@ -26,30 +27,29 @@ COMPANY_ROOM_CODE = "lsRHGGT111"
 ID = "1"
 DATETIME = DateTime()
 TMPDATETIME = ''
-MODEL_PATH = 'model/custom_landmark_model.dat'
+MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 
 # Now, intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
 print("[INFO]: Loading the predictor ...")
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(MODEL_PATH)
-vs = VideoStream(usePiCamera=True, resolution = (320,240)).start()
+vs = cv2.VideoCapture(0)
 time.sleep(1.0)
 print("[INFO]: Predictor is ready!")
 
 #MQ3 sensor intialize
-wiringpi.wiringPiSetupGpio()
-wiringpi.pinMode(25, 0)
+# wiringpi.wiringPiSetupGpio()
+# wiringpi.pinMode(25, 0)
 count = 0
 print("[INFO]: MQ3 SENSOR is ready!")
 
-    
-def connect_websocket():
-    url = f"ws://192.168.1.4:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/"
+def connect_websocket(url):
+    #url = f"ws://localhost:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/"
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
                                 on_error=on_error,
-                                on_close=on_close)
-    ws.on_open = on_open
+                                on_close=on_close,
+                                on_open = on_open)
     ws.run_forever()
 
 def on_message(ws, message):
@@ -59,28 +59,34 @@ def on_message(ws, message):
     sendImage = False
     
     if data['piDeviceID'] == ID:
-        try:
-            VIDEO_FUNCTION = VideoActivity()
-            #alertTime = DATETIME.getSendingDateNameFormat(data['time'])
-            listFrame = VIDEO_FUNCTION.receiveRequestcut('20062021113507', 'yawning')
-            alertTime = DATETIME.getSendingDateNameFormat(data['time'])
-        except Exception as e:
-            print('[INFOR] Rasp1:'+ str(e))         
-            
-        if sendImage:       
-            try:
-                ws.send(
-                    json.dumps({
-                        'command': 'sendImgToBrowser',
-                        'messageType': 'sendImg',
-                        'driveID': data["driveID"],
-                        'frame': listFrame,
-                    })
-                )
-                time.sleep(0.5)  
+        alertTime = DATETIME.getDateNameFormat2(data['time-occured'])
+        VIDEO_FUNCTION = VideoActivity()
+        listFrame = VIDEO_FUNCTION.receiveRequestcut(alertTime, 'drowsiness')
+        tmpCount = 0;
+        for frame in listFrame:
+            tmpCount += 1
+            if tmpCount % 8 == 0:
+                try:
+                    print(alertTime)
+                    sendImage = True
+                except Exception as e:
+                    print('[INFOR] Rasp:'+ str(e))         
+                    
+                if sendImage:       
+                    try:
+                        ws.send(
+                            json.dumps({
+                                'command': 'sendImgToBrowser',
+                                'messageType': 'sendImg',
+                                'driveID': data["driveID"],
+                                'frame': frame,
+                                'time-happened': str(datetime.now())
+                            })
+                        )
+                        time.sleep(0.5)
 
-            except Exception as e:
-                print("[INFOR]" + str(e))
+                    except Exception as e:
+                        print("[INFOR]" + str(e))
 
 def on_error(ws, error):
     print('[Socket Error]: ' + error)
@@ -97,29 +103,22 @@ def on_open(ws):
 
 def detecteOparation(vs, detector, predictor, count, ws, connect):
     #Model, saving video path intialize
-    GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.avi"
+    GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.mp4"
     if connect:
-        GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.avi"
+        GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.mp4"
         SOCKET = Socket(ws)
 
     GENERAL_VIDEO = VideoActivity(GENERAL_VIDEO_PATH)
-    COUNT_FRAME = 0
-
     EAR_THRESHOLD = 0.2
-
-    MAR_THRESHOLD = 10
-
-    CONSECUTIVE_FRAMES = 20
-    CONSECUTIVE_FRAMES_MOUTH = 7
+    CONSECUTIVE_FRAMES = 40
 
     # Initialize two counters
-    YAWN_COUNT = 0
     FRAME_COUNT_EAR = 0
-    FRAME_COUNT_MAR = 0
     FRAME_COUNT_DISTR = 0
     
     #Websocket connection detection
     FRAME_COUNT_CONNECT = 0
+    
     if connect:
         print("[INFOR]: Start online dectecting ...")
     else:
@@ -127,49 +126,54 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
     
     while True:
         #Alcolho detection
-        my_input=wiringpi.digitalRead(25)
-        if(my_input):
-         pass
-        else:
-         count=count+1
-        if count == 5:
-         sendTime = str(datetime.now())
-         print("[DETECTION INFOR]: Alcohol Detected")
-         if connect:
-             SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
-         count = 0
+        # my_input=wiringpi.digitalRead(25)
+        # if(my_input):
+        #  pass
+        # else:
+        #  count=count+1
+        # if count == 5:
+        #  sendTime = str(datetime.now())
+        #  print("[DETECTION INFOR]: Alcohol Detected")
+        #  if connect:
+        #      SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
+        #  count = 0
          
         #Get frames
-        frame = vs.read()
-        COUNT_FRAME = COUNT_FRAME + 1
-        frame = imutils.resize(frame, width=300)
+        if connect == False:
+            FRAME_COUNT_CONNECT += 1
+            if FRAME_COUNT_CONNECT >= 500:
+                connect_websocket()
+        ret, frame = vs.read()
+        frame = imutils.resize(frame, width=400)
         GENERAL_VIDEO.writeFrames(frame)
         (h, w) = frame.shape[:2]
         rects = detector(frame, 0)
 
         if len(rects) > 0:
             rect = get_max_area_rect(rects)
+            (x, y, w, h) = face_utils.rect_to_bb(rect)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             shape = predictor(frame, rect)
             shape = face_utils.shape_to_np(shape)
 
             leftEye = shape[0:6]
             rightEye = shape[6:12]
-            mouth = shape[12:32] 
 
             leftEAR = eye_aspect_ratio(leftEye)
             rightEAR = eye_aspect_ratio(rightEye)
+
             EAR = (leftEAR + rightEAR) / 2.0
+
             leftEyeHull = cv2.convexHull(leftEye)
             rightEyeHull = cv2.convexHull(rightEye)
+            
             cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
             cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
-            cv2.drawContours(frame, [mouth], -1, (0, 255, 0), 1)
-            MAR = mouth_aspect_ratio(mouth)
 
             if EAR < EAR_THRESHOLD:
                 if FRAME_COUNT_EAR == 0:
                     saveTime, sendTime = DATETIME.getDateNameFormat()
-                    writterDrowsiness = VideoActivity('media/detail/drowsiness/drowsiness' + saveTime + '.avi')
+                    writterDrowsiness = VideoActivity('media/detail/drowsiness/drowsiness' + saveTime + '.mp4')
                     FRAME_COUNT_EAR += 1
                 else:
                     FRAME_COUNT_EAR += 1
@@ -181,47 +185,27 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
                     if connect:
                         SOCKET.sendToDjango('Drowsiness', sendTime, ws)
                     writterDrowsiness.releaseVideo()
-            else:
                     FRAME_COUNT_EAR = 0
-
-            if MAR > MAR_THRESHOLD:
-                if FRAME_COUNT_MAR == 0:
-                    saveTime, sendTime = DATETIME.getDateNameFormat()
-                    writterYawning = VideoActivity('media/detail/yawning/yawning' + saveTime + '.avi')
-                    FRAME_COUNT_MAR += 1
-                else:
-                    FRAME_COUNT_MAR += 1
-                    writterYawning.writeFrames(frame)
-                if FRAME_COUNT_MAR >= CONSECUTIVE_FRAMES_MOUTH:
-                    print('[DETECTION INFOR]: YOU ARE YAWNING !')
-                    if connect:
-                        SOCKET.sendToDjango('Yawning', sendTime, ws)
-                    writterYawning.releaseVideo()
-                    FRAME_COUNT_MAR = 0
-                
             else:
-                FRAME_COUNT_MAR = 0
+                FRAME_COUNT_EAR = 0
 
             FRAME_COUNT_DISTR = 0
         else:
             FRAME_COUNT_DISTR += 1
-
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                print("[DETECTION INFOR]: NO EYES !")
-            
-        #Websocket connection detection
-        FRAME_COUNT_CONNECT += 1
-        if FRAME_COUNT_CONNECT >= 100:
-            connect_websocket()
+                pass
+                # print("[DETECTION INFOR]: NO EYES !")
+        #Websocket connection detectin
             
     GENERAL_VIDEO.releaseVideo()
     print("Thread terminating...")
     
     if connect:
         ws.close()
-
+        
 if __name__ == "__main__":
     try:
-        connect_websocket()
+        connect_websocket(f"ws://10.10.33.87:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
     except Exception as err:
-        print("[INFOR]: " + err)
+        print("[INFOR]: " + str(err))
+
