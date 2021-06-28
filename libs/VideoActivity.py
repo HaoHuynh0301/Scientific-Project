@@ -28,13 +28,13 @@ class VideoActivity:
     def createVideo(self):
         fps = 10.0
         size = (225,300)
-        writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), fps, size)
+        writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
         return writter
     
     def receiveRequestcut(self, tmpDateTime, message):
         ResultStr = []
         fframe = ""
-        cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".mp4")      
+        cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".avi")      
         while(cap.isOpened()):
             ret, frame = cap.read()
             if ret == False:
