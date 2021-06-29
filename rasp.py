@@ -103,9 +103,9 @@ def on_open(ws):
 
 def detecteOparation(vs, detector, predictor, count, ws, connect):
     #Model, saving video path intialize
-    GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.mp4"
+    GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.avi"
     if connect:
-        GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.mp4"
+        GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.avi"
         SOCKET = Socket(ws)
 
     GENERAL_VIDEO = VideoActivity(GENERAL_VIDEO_PATH)
@@ -126,17 +126,17 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
     
     while True:
         #Alcolho detection
-        # my_input=wiringpi.digitalRead(25)
-        # if(my_input):
-        #  pass
-        # else:
-        #  count=count+1
-        # if count == 5:
-        #  sendTime = str(datetime.now())
-        #  print("[DETECTION INFOR]: Alcohol Detected")
-        #  if connect:
-        #      SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
-        #  count = 0
+        my_input=wiringpi.digitalRead(25)
+        if(my_input):
+          pass
+        else:
+         count=count+1
+        if count == 5:
+         sendTime = str(datetime.now())
+         print("[DETECTION INFOR]: Alcohol Detected")
+         if connect:
+          SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
+        count = 0
          
         #Get frames
         if connect == False:
