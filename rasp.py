@@ -38,8 +38,8 @@ time.sleep(1.0)
 print("[INFO]: Predictor is ready!")
 
 #MQ3 sensor intialize
-# wiringpi.wiringPiSetupGpio()
-# wiringpi.pinMode(25, 0)
+wiringpi.wiringPiSetupGpio()
+wiringpi.pinMode(25, 0)
 count = 0
 print("[INFO]: MQ3 SENSOR is ready!")
 
