@@ -17,6 +17,16 @@ class Socket:
         except Exception as e:
             print("[INFOR]: " + str(e))
             
+    def generalSending(self, raspID, tmp_ws):
+        pp = json.dumps({
+            "command": 'getRoomCode',
+            "id": raspID
+        })
+        try:
+            tmp_ws.send(pp)
+        except Exception as e:
+            print(str(e))
+            
     def virtualWebserver(self, time, activity, ws):
         pp = json.dumps({
             'command': 'getInfo',

@@ -23,7 +23,13 @@ import imutils
 #Fils, and folders intialize
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-COMPANY_ROOM_CODE = "lsRHGGT111"
+
+#Adding status
+ROOM_CODE_FILE = open('RoomCode.txt', "r+")
+COMPANY_ROOM_CODE = str(ROOM_CODE_FILE.read())
+if COMPANY_ROOM_CODE == 'general':
+    CONNECT_STATUS = False
+else: CONNECT_STATUS = True
 ID = "1"
 DATETIME = DateTime()
 TMPDATETIME = ''
@@ -38,13 +44,16 @@ time.sleep(1.0)
 print("[INFO]: Predictor is ready!")
 
 #MQ3 sensor intialize
-wiringpi.wiringPiSetupGpio()
-wiringpi.pinMode(25, 0)
+# wiringpi.wiringPiSetupGpio()
+# wiringpi.pinMode(25, 0)
 count = 0
 print("[INFO]: MQ3 SENSOR is ready!")
 
+def UnaddingOparation(ws):
+    SOCKET = Socket(ws)
+    SOCKET.generalSending(ID, ws)
+
 def connect_websocket(url):
-    #url = f"ws://localhost:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/"
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
                                 on_error=on_error,
@@ -61,33 +70,27 @@ def on_message(ws, message):
     if data['piDeviceID'] == ID:
         alertTime = DATETIME.getDateNameFormat2(data['time-occured'])
         VIDEO_FUNCTION = VideoActivity()
-        listFrame = VIDEO_FUNCTION.receiveRequestcut(alertTime, 'drowsiness')
-        tmpCount = 0;
-        for frame in listFrame:
-            tmpCount += 1
-            if tmpCount % 8 == 0:
+        listFrame = VIDEO_FUNCTION.receiveRequestcut(alertTime, 'drowsiness')    
+        sendImage = True       
+        if sendImage: 
+            for frame in listFrame:       
                 try:
-                    print(alertTime)
-                    sendImage = True
+                    ws.send(
+                        json.dumps({
+                            'command': 'sendImgToBrowser',
+                            'messageType': 'sendImg',
+                            'driveID': data["driveID"],
+                            'frame': frame,
+                            'time-happened': str(datetime.now())
+                        })
+                    )
+                    time.sleep(0.5)
+
                 except Exception as e:
-                    print('[INFOR] Rasp:'+ str(e))         
-                    
-                if sendImage:       
-                    try:
-                        ws.send(
-                            json.dumps({
-                                'command': 'sendImgToBrowser',
-                                'messageType': 'sendImg',
-                                'driveID': data["driveID"],
-                                'frame': frame,
-                                'time-happened': str(datetime.now())
-                            })
-                        )
-                        time.sleep(0.5)
-
-                    except Exception as e:
-                        print("[INFOR]" + str(e))
-
+                    print("[INFOR]" + str(e))
+    if data["id"] == ID:
+        COMPANY_ROOM_CODE = data['roomCode']
+        connect_websocket(f"ws://10.10.33.46:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
 def on_error(ws, error):
     print('[Socket Error]: ' + error)
 
@@ -98,19 +101,22 @@ def on_close(ws):
 def on_open(ws):
     def run(*args):
         print("[SOCKET INFORMATION]: Connect to Websocket ...")
-        detecteOparation(vs, detector, predictor, count, ws, True)
+        if CONNECT_STATUS:
+            detecteOparation(vs, detector, predictor, count, ws, True)
+        else:
+            UnaddingOparation(ws)
     thread.start_new_thread(run, ()) 
 
 def detecteOparation(vs, detector, predictor, count, ws, connect):
     #Model, saving video path intialize
-    GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.avi"
+    GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.mp4"
     if connect:
-        GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.avi"
+        GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.mp4"
         SOCKET = Socket(ws)
 
     GENERAL_VIDEO = VideoActivity(GENERAL_VIDEO_PATH)
     EAR_THRESHOLD = 0.2
-    CONSECUTIVE_FRAMES = 40
+    CONSECUTIVE_FRAMES = 50
 
     # Initialize two counters
     FRAME_COUNT_EAR = 0
@@ -126,17 +132,17 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
     
     while True:
         #Alcolho detection
-        my_input=wiringpi.digitalRead(25)
-        if(my_input):
-          pass
-        else:
-         count=count+1
-        if count == 5:
-         sendTime = str(datetime.now())
-         print("[DETECTION INFOR]: Alcohol Detected")
-         if connect:
-          SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
-        count = 0
+        # my_input=wiringpi.digitalRead(25)
+        # if(my_input):
+        #   pass
+        # else:
+        #  count=count+1
+        # if count == 5:
+        #  sendTime = str(datetime.now())
+        #  print("[DETECTION INFOR]: Alcohol Detected")
+        #  if connect:
+        #   SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
+        # count = 0
          
         #Get frames
         if connect == False:
@@ -205,7 +211,7 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
         
 if __name__ == "__main__":
     try:
-        connect_websocket(f"ws://10.10.33.87:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+        connect_websocket(f"ws://10.10.33.46:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
     except Exception as err:
         print("[INFOR]: " + str(err))
 
