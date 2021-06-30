@@ -21,19 +21,22 @@ import cv2
 import imutils
 
 #Fils, and folders intialize
+ID = "1"
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
+SERVER_ID = "10.10.33.46"
+MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 
-#Adding status
-ROOM_CODE_FILE = open('RoomCode.txt', "r+")
-COMPANY_ROOM_CODE = str(ROOM_CODE_FILE.read())
+# Opening JSON file, and return JSON data
+f = open('RoomCode.json')
+JSON_DATA = json.load(f)
+COMPANY_ROOM_CODE = JSON_DATA['roomCode']
+
+CONNECT_STATUS = True
 if COMPANY_ROOM_CODE == 'general':
     CONNECT_STATUS = False
-else: CONNECT_STATUS = True
-ID = "1"
 DATETIME = DateTime()
 TMPDATETIME = ''
-MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 
 # Now, intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
 print("[INFO]: Loading the predictor ...")
@@ -49,54 +52,72 @@ print("[INFO]: Predictor is ready!")
 count = 0
 print("[INFO]: MQ3 SENSOR is ready!")
 
-def UnaddingOparation(ws):
-    SOCKET = Socket(ws)
-    SOCKET.generalSending(ID, ws)
+def UnaddingOparation(ws, connect):
+    if connect:
+        SOCKET = Socket(ws)
+        SOCKET.generalSending(ID, ws)
+    while(True):
+        print("[INFOR]: No determine room code detected!")
+        time.sleep(2.0)
 
 def connect_websocket(url):
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
                                 on_error=on_error,
-                                on_close=on_close,
-                                on_open = on_open)
+                                on_close=on_close)
+    ws.on_open = on_open
     ws.run_forever()
 
 def on_message(ws, message):
     data = json.loads(message)
     print(data)
     listFrame = []
-    sendImage = False
     
+    #Get message when server wanna get drowsiness video
     if data['piDeviceID'] == ID:
         alertTime = DATETIME.getDateNameFormat2(data['time-occured'])
         VIDEO_FUNCTION = VideoActivity()
         listFrame = VIDEO_FUNCTION.receiveRequestcut(alertTime, 'drowsiness')    
-        sendImage = True       
-        if sendImage: 
-            for frame in listFrame:       
-                try:
-                    ws.send(
-                        json.dumps({
-                            'command': 'sendImgToBrowser',
-                            'messageType': 'sendImg',
-                            'driveID': data["driveID"],
-                            'frame': frame,
-                            'time-happened': str(datetime.now())
-                        })
-                    )
-                    time.sleep(0.5)
-
-                except Exception as e:
-                    print("[INFOR]" + str(e))
+        for frame in listFrame:       
+            try:
+                ws.send(
+                    json.dumps({
+                        'command': 'sendImgToBrowser',
+                        'messageType': 'sendImg',
+                        'driveID': data["driveID"],
+                        'frame': frame,
+                        'time-happened': str(datetime.now())
+                    })
+                )
+                time.sleep(0.5)
+            except Exception as e:
+                print("[INFOR]" + str(e))
+    
+    #Get determine room code  
     if data["id"] == ID:
         COMPANY_ROOM_CODE = data['roomCode']
-        connect_websocket(f"ws://10.10.33.46:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+        try:
+            updatedRoomCode = {
+                'roomCode': COMPANY_ROOM_CODE
+            }
+            
+            connect_websocket(f"ws://{SERVER_ID}:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+        except:
+            COMPANY_ROOM_CODE = 'general'
+            connect_websocket(f"ws://{SERVER_ID}:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+        
 def on_error(ws, error):
     print('[Socket Error]: ' + error)
 
 def on_close(ws):
     print("[SOCKET INFORMATION]: Can not connect to Websocket ...")
-    detecteOparation(vs, detector, predictor, count, ws, False)
+    if CONNECT_STATUS:
+        detecteOparation(vs, detector, predictor, count, ws, False)
+    else:
+        print("[SOCKET INFORMATION]: Try to connect ro general room!")
+        while(True):
+            connect_websocket(f"ws://{SERVER_ID}:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+
 
 def on_open(ws):
     def run(*args):
@@ -144,11 +165,12 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
         #   SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
         # count = 0
          
-        #Get frames
         if connect == False:
             FRAME_COUNT_CONNECT += 1
-            if FRAME_COUNT_CONNECT >= 500:
-                connect_websocket()
+            if FRAME_COUNT_CONNECT >= 200:
+                connect_websocket(f"ws://10.10.33.46:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+                
+        #Get frames from camera      
         ret, frame = vs.read()
         frame = imutils.resize(frame, width=400)
         GENERAL_VIDEO.writeFrames(frame)
@@ -211,7 +233,7 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
         
 if __name__ == "__main__":
     try:
-        connect_websocket(f"ws://10.10.33.46:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+        connect_websocket(f"ws://{SERVER_ID}:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
     except Exception as err:
         print("[INFOR]: " + str(err))
 
