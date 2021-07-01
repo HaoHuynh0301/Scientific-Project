@@ -20,47 +20,48 @@ import dlib
 import cv2
 import imutils
 
-#Fils, and folders intialize
-ID = "1"
+# Intialize files, and folders
+ID = "12"
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-SERVER_ID = "10.10.33.46"
+SERVER_ID = "10.10.33.74"
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
-
-# Opening JSON file, and return JSON data
-f = open('RoomCode.json')
-JSON_DATA = json.load(f)
-COMPANY_ROOM_CODE = JSON_DATA['roomCode']
-
-CONNECT_STATUS = True
-if COMPANY_ROOM_CODE == 'general':
-    CONNECT_STATUS = False
 DATETIME = DateTime()
 TMPDATETIME = ''
 
-# Now, intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
-print("[INFO]: Loading the predictor ...")
+# Opening JSON file, and return JSON data
+f = open('data/RoomCode.json')
+JSON_DATA = json.load(f)
+COMPANY_ROOM_CODE = JSON_DATA['roomCode']
+f.close()
+
+CONNECT_GENERAL_STATUS = True
+if COMPANY_ROOM_CODE == 'general':
+    CONNECT_GENERAL_STATUS = False
+
+# Intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
+print("[INFOR]: Loading the predictor ...")
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(MODEL_PATH)
 vs = cv2.VideoCapture(0)
-time.sleep(1.0)
-print("[INFO]: Predictor is ready!")
+time.sleep(0.5)
+print("[INFOR]: Predictor is ready!")
 
-#MQ3 sensor intialize
+# MQ3 sensor intialize
 # wiringpi.wiringPiSetupGpio()
 # wiringpi.pinMode(25, 0)
 count = 0
-print("[INFO]: MQ3 SENSOR is ready!")
+print("[INFOR]: MQ3 SENSOR is ready!")
 
 def UnaddingOparation(ws, connect):
     if connect:
         SOCKET = Socket(ws)
-        SOCKET.generalSending(ID, ws)
-    while(True):
-        print("[INFOR]: No determine room code detected!")
-        time.sleep(2.0)
+        SOCKET.generalSending(ID, ws)    
+    print("[WEBSOCKET INFOR]: No determine room code detected!")
+    time.sleep(2.0)
 
 def connect_websocket(url):
+    print(CONNECT_GENERAL_STATUS)
     ws = websocket.WebSocketApp(url,
                                 on_message=on_message,
                                 on_error=on_error,
@@ -69,16 +70,17 @@ def connect_websocket(url):
     ws.run_forever()
 
 def on_message(ws, message):
+    # Load message data
     data = json.loads(message)
     print(data)
     listFrame = []
     
-    #Get message when server wanna get drowsiness video
-    if data['piDeviceID'] == ID:
+    # Get message when server wanna get drowsiness video
+    if data.get('piDeviceID')== ID:
         alertTime = DATETIME.getDateNameFormat2(data['time-occured'])
         VIDEO_FUNCTION = VideoActivity()
-        listFrame = VIDEO_FUNCTION.receiveRequestcut(alertTime, 'drowsiness')    
-        for frame in listFrame:       
+        frames = VIDEO_FUNCTION.receiveRequestcut(alertTime, 'drowsiness')    
+        for frame in frames:       
             try:
                 ws.send(
                     json.dumps({
@@ -93,43 +95,39 @@ def on_message(ws, message):
             except Exception as e:
                 print("[INFOR]" + str(e))
     
-    #Get determine room code  
-    if data["id"] == ID:
-        COMPANY_ROOM_CODE = data['roomCode']
-        try:
-            updatedRoomCode = {
+    # Get determine roomCode  
+    if data.get('command') == 'getRoomCode':
+        if data["id"] == ID:
+            COMPANY_ROOM_CODE = data.get('command')
+            # Update roomCode JSON file
+            f = open('data/RoomCode.json', 'w')
+            JSON_DATA = {
                 'roomCode': COMPANY_ROOM_CODE
             }
-            
-            connect_websocket(f"ws://{SERVER_ID}:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
-        except:
-            COMPANY_ROOM_CODE = 'general'
-            connect_websocket(f"ws://{SERVER_ID}:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+            json.dump(JSON_DATA, f)
+            f.close()
+            CONNECT_GENERAL_STATUS = True
+            connect_websocket(f"ws://2a3b6495b1e4.ngrok.io/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
         
 def on_error(ws, error):
     print('[Socket Error]: ' + error)
 
 def on_close(ws):
     print("[SOCKET INFORMATION]: Can not connect to Websocket ...")
-    if CONNECT_STATUS:
-        detecteOparation(vs, detector, predictor, count, ws, False)
-    else:
-        print("[SOCKET INFORMATION]: Try to connect ro general room!")
-        while(True):
-            connect_websocket(f"ws://{SERVER_ID}:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
-
+    detecteOparation(vs, detector, predictor, count, ws, False)
 
 def on_open(ws):
     def run(*args):
+        
         print("[SOCKET INFORMATION]: Connect to Websocket ...")
-        if CONNECT_STATUS:
+        if CONNECT_GENERAL_STATUS:
             detecteOparation(vs, detector, predictor, count, ws, True)
         else:
-            UnaddingOparation(ws)
+            UnaddingOparation(ws, True)
     thread.start_new_thread(run, ()) 
 
 def detecteOparation(vs, detector, predictor, count, ws, connect):
-    #Model, saving video path intialize
+    # Intialize saving video path
     GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.mp4"
     if connect:
         GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.mp4"
@@ -137,13 +135,13 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
 
     GENERAL_VIDEO = VideoActivity(GENERAL_VIDEO_PATH)
     EAR_THRESHOLD = 0.2
-    CONSECUTIVE_FRAMES = 50
+    CONSECUTIVE_FRAMES = 100
 
     # Initialize two counters
     FRAME_COUNT_EAR = 0
     FRAME_COUNT_DISTR = 0
     
-    #Websocket connection detection
+    # Websocket connection detection
     FRAME_COUNT_CONNECT = 0
     
     if connect:
@@ -152,7 +150,7 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
         print("[INFOR]: Start offline dectecting ...")
     
     while True:
-        #Alcolho detection
+        # Alcolho detection
         # my_input=wiringpi.digitalRead(25)
         # if(my_input):
         #   pass
@@ -164,11 +162,11 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
         #  if connect:
         #   SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
         # count = 0
-         
+        # Try to connect to Webserver
         if connect == False:
             FRAME_COUNT_CONNECT += 1
-            if FRAME_COUNT_CONNECT >= 200:
-                connect_websocket(f"ws://10.10.33.46:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+            if FRAME_COUNT_CONNECT >= 300:
+                connect_websocket(f"ws://2a3b6495b1e4.ngrok.io/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
                 
         #Get frames from camera      
         ret, frame = vs.read()
@@ -223,8 +221,6 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
                 pass
                 # print("[DETECTION INFOR]: NO EYES !")
-        #Websocket connection detectin
-            
     GENERAL_VIDEO.releaseVideo()
     print("Thread terminating...")
     
@@ -233,7 +229,7 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
         
 if __name__ == "__main__":
     try:
-        connect_websocket(f"ws://{SERVER_ID}:8000/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+        connect_websocket(f"ws://2a3b6495b1e4.ngrok.io/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
     except Exception as err:
-        print("[INFOR]: " + str(err))
+        print("[WEBSOCKET INFOR]: " + str(err))
 

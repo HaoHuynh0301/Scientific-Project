@@ -34,8 +34,11 @@ class VideoActivity:
     def receiveRequestcut(self, tmpDateTime, message):
         ResultStr = []
         fframe = ""
-        cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".mp4")      
+        cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".mp4") 
+        count = 0     
         while(cap.isOpened()):
+            count += 1
+            if count == 5: break
             ret, frame = cap.read()
             if ret == False:
                 break
