@@ -17,15 +17,15 @@ class Socket:
         except Exception as e:
             print("[INFOR]: " + str(e))
             
-    def getDeterminedRoomCode(self, raspID, tmp_ws):
+    def getDeterminedRoomCode(self, raspId):
         pp = json.dumps({
             "command": 'getRoomCode',
-            "id": raspID
+            "id": raspId
         })
         try:
-            tmp_ws.send(pp)
-        except Exception as e:
-            print(str(e))
+            self.ws.send(pp)
+        except Exception as err:
+            print(str(err))
             
     def virtualWebserver(self, time, activity, ws):
         pp = json.dumps({
