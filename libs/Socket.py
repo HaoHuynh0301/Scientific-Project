@@ -6,7 +6,7 @@ class Socket:
     def __init__(self, ws):
         self.ws = ws
         
-    def sendToDjango(self, message, senddatetime, temp_ws):
+    def sendAlertToServer(self, message, senddatetime, temp_ws):
         pp = json.dumps({
             "command": 'alert',
             'name': message,
@@ -17,7 +17,7 @@ class Socket:
         except Exception as e:
             print("[INFOR]: " + str(e))
             
-    def generalSending(self, raspID, tmp_ws):
+    def getDeterminedRoomCode(self, raspID, tmp_ws):
         pp = json.dumps({
             "command": 'getRoomCode',
             "id": raspID

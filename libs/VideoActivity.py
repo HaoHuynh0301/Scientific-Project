@@ -31,18 +31,17 @@ class VideoActivity:
         writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), fps, size)
         return writter
     
-    def receiveRequestcut(self, tmpDateTime, message):
-        ResultStr = []
-        fframe = ""
+    def getRequestVideo(self, tmpDateTime, message):
+        frames = []
         cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".mp4") 
-        count = 0     
+        sendingFrameCount = 0     
         while(cap.isOpened()):
-            count += 1
-            if count == 5: break
+            sendingFrameCount += 1
+            if sendingFrameCount == 5: break
             ret, frame = cap.read()
             if ret == False:
                 break
             frame = cv2.resize(frame, (640, 464))
             fframe = base64.b64encode(cv2.imencode('.jpg', frame)[1]).decode()
-            ResultStr.append(fframe)
-        return ResultStr
+            frames.append(fframe)
+        return frames

@@ -26,7 +26,6 @@ class DateTime:
         dt_string = dt_string.replace(":", "")
         dt_string = dt_string.replace("-", "")
         dt_string = dt_string[:14]
-        print(dt_string)
         return dt_string
 
             

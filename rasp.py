@@ -21,23 +21,22 @@ import cv2
 import imutils
 
 # Intialize files, and folders
-ID = "12"
+RASPBERRY_ID = "12"
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-SERVER_ID = "10.10.33.74"
+SERVER_ID = "2a3b6495b1e4.ngrok.io"
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
-DATETIME = DateTime()
-TMPDATETIME = ''
+Datetime = DateTime()
 
 # Opening JSON file, and return JSON data
 f = open('data/RoomCode.json')
-JSON_DATA = json.load(f)
-COMPANY_ROOM_CODE = JSON_DATA['roomCode']
+jsonData = json.load(f)
+companyRoomCode = jsonData['roomCode']
 f.close()
 
-CONNECT_GENERAL_STATUS = True
-if COMPANY_ROOM_CODE == 'general':
-    CONNECT_GENERAL_STATUS = False
+isGeneralRoomConnected = True
+if companyRoomCode == 'general':
+    isGeneralRoomConnected = False
 
 # Intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
 print("[INFOR]: Loading the predictor ...")
@@ -50,90 +49,86 @@ print("[INFOR]: Predictor is ready!")
 # MQ3 sensor intialize
 # wiringpi.wiringPiSetupGpio()
 # wiringpi.pinMode(25, 0)
-count = 0
+sensorCount = 0
 print("[INFOR]: MQ3 SENSOR is ready!")
 
-def UnaddingOparation(ws, connect):
-    if connect:
-        SOCKET = Socket(ws)
-        SOCKET.generalSending(ID, ws)    
-    print("[WEBSOCKET INFOR]: No determine room code detected!")
+def requestDeterminedRoomCode(ws, isConnected):
+    if isConnected:
+        Socket = Socket(ws)
+        Socket.getDeterminedRoomCode(RASPBERRY_ID, ws)    
+    print("[WEBSOCKET INFOR]: No determined roomcode detected!")
     time.sleep(2.0)
 
-def connect_websocket(url):
-    print(CONNECT_GENERAL_STATUS)
+def connectWebsocket(url):
     ws = websocket.WebSocketApp(url,
-                                on_message=on_message,
-                                on_error=on_error,
-                                on_close=on_close)
+                                on_message = on_message,
+                                on_error = on_error,
+                                on_close = on_close)
     ws.on_open = on_open
     ws.run_forever()
 
 def on_message(ws, message):
     # Load message data
-    data = json.loads(message)
-    print(data)
-    listFrame = []
+    messageData = json.loads(message)
+    print(messageData)
     
     # Get message when server wanna get drowsiness video
-    if data.get('piDeviceID')== ID:
-        alertTime = DATETIME.getDateNameFormat2(data['time-occured'])
-        VIDEO_FUNCTION = VideoActivity()
-        frames = VIDEO_FUNCTION.receiveRequestcut(alertTime, 'drowsiness')    
+    if messageData.get('piDeviceID') == RASPBERRY_ID:
+        alertTime = Datetime.getDateNameFormat2(messageData['time-occured'])
+        VideoActivity = VideoActivity()
+        frames = VideoActivity.getRequestVideo(alertTime, 'drowsiness')    
         for frame in frames:       
             try:
                 ws.send(
                     json.dumps({
                         'command': 'sendImgToBrowser',
                         'messageType': 'sendImg',
-                        'driveID': data["driveID"],
+                        'driveID': messageData["driveID"],
                         'frame': frame,
                         'time-happened': str(datetime.now())
                     })
                 )
                 time.sleep(0.5)
-            except Exception as e:
-                print("[INFOR]" + str(e))
+            except Exception as err:
+                print("[INFOR]" + str(err))
     
     # Get determine roomCode  
-    if data.get('command') == 'getRoomCode':
-        if data["id"] == ID:
-            COMPANY_ROOM_CODE = data.get('command')
+    if messageData.get('command') == 'getRoomCode':
+        if messageData['id'] == RASPBERRY_ID:
+            companyRoomCode = messageData.get('command')
             # Update roomCode JSON file
             f = open('data/RoomCode.json', 'w')
             JSON_DATA = {
-                'roomCode': COMPANY_ROOM_CODE
+                'roomCode': companyRoomCode
             }
             json.dump(JSON_DATA, f)
             f.close()
-            CONNECT_GENERAL_STATUS = True
-            connect_websocket(f"ws://2a3b6495b1e4.ngrok.io/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+            isGeneralRoomConnected = True
+            connectWebsocket(f"ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/")
         
 def on_error(ws, error):
     print('[Socket Error]: ' + error)
 
 def on_close(ws):
     print("[SOCKET INFORMATION]: Can not connect to Websocket ...")
-    detecteOparation(vs, detector, predictor, count, ws, False)
+    detecteAlert(vs, detector, predictor, sensorCount, ws, False)
 
 def on_open(ws):
     def run(*args):
-        
         print("[SOCKET INFORMATION]: Connect to Websocket ...")
-        if CONNECT_GENERAL_STATUS:
-            detecteOparation(vs, detector, predictor, count, ws, True)
+        if isGeneralRoomConnected:
+            detecteAlert(vs, detector, predictor, sensorCount, ws, True)
         else:
-            UnaddingOparation(ws, True)
+            requestDeterminedRoomCode(ws, True)
     thread.start_new_thread(run, ()) 
 
-def detecteOparation(vs, detector, predictor, count, ws, connect):
+def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
     # Intialize saving video path
-    GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_connected.mp4"
-    if connect:
-        GENERAL_VIDEO_PATH = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.mp4"
-        SOCKET = Socket(ws)
-
-    GENERAL_VIDEO = VideoActivity(GENERAL_VIDEO_PATH)
+    generalVideoPath = 'media/general/rasp_' + str(datetime.now()) + "_connected.mp4"
+    if isConnected:
+        generalVideoPath = 'media/general/rasp_' + str(datetime.now()) + "_disconnected.mp4"
+        Socket = Socket(ws)
+    generalVideo = VideoActivity(generalVideoPath)
     EAR_THRESHOLD = 0.2
     CONSECUTIVE_FRAMES = 100
 
@@ -142,36 +137,37 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
     FRAME_COUNT_DISTR = 0
     
     # Websocket connection detection
-    FRAME_COUNT_CONNECT = 0
+    RECONNECT_FRAME = 300
+    reconnectFrameCount = 0
     
-    if connect:
+    if isConnected:
         print("[INFOR]: Start online dectecting ...")
     else:
         print("[INFOR]: Start offline dectecting ...")
-    
+        
     while True:
         # Alcolho detection
         # my_input=wiringpi.digitalRead(25)
         # if(my_input):
         #   pass
         # else:
-        #  count=count+1
-        # if count == 5:
+        #  sensorCount += 1
+        # if sensorCount == 5:
         #  sendTime = str(datetime.now())
         #  print("[DETECTION INFOR]: Alcohol Detected")
-        #  if connect:
-        #   SOCKET.sendToDjango('Alcohol Detected', sendTime, ws)
-        # count = 0
+        #  if isConnected:
+        #   Socket.sendToDjango('Alcohol Detected', sendTime, ws)
+        # sensorCount = 0
         # Try to connect to Webserver
-        if connect == False:
-            FRAME_COUNT_CONNECT += 1
-            if FRAME_COUNT_CONNECT >= 300:
-                connect_websocket(f"ws://2a3b6495b1e4.ngrok.io/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+        if isConnected == False:
+            reconnectFrameCount += 1
+            if reconnectFrameCount >= RECONNECT_FRAME:
+                connectWebsocket(f"ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/")
                 
         #Get frames from camera      
         ret, frame = vs.read()
         frame = imutils.resize(frame, width=400)
-        GENERAL_VIDEO.writeFrames(frame)
+        generalVideo.writeFrames(frame)
         (h, w) = frame.shape[:2]
         rects = detector(frame, 0)
 
@@ -198,19 +194,19 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
 
             if EAR < EAR_THRESHOLD:
                 if FRAME_COUNT_EAR == 0:
-                    saveTime, sendTime = DATETIME.getDateNameFormat()
-                    writterDrowsiness = VideoActivity('media/detail/drowsiness/drowsiness' + saveTime + '.mp4')
+                    saveTime, sendTime = Datetime.getDateNameFormat()
+                    drosinessVideoWritter = VideoActivity('media/detail/drowsiness/drowsiness' + saveTime + '.mp4')
                     FRAME_COUNT_EAR += 1
                 else:
                     FRAME_COUNT_EAR += 1
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
-                    writterDrowsiness.writeFrames(frame)
+                    drosinessVideoWritter.writeFrames(frame)
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
-                    if connect:
-                        SOCKET.sendToDjango('Drowsiness', sendTime, ws)
-                    writterDrowsiness.releaseVideo()
+                    if isConnected:
+                        Socket.sendAlertToServer('Drowsiness', sendTime, ws)
+                    drosinessVideoWritter.releaseVideo()
                     FRAME_COUNT_EAR = 0
             else:
                 FRAME_COUNT_EAR = 0
@@ -221,15 +217,14 @@ def detecteOparation(vs, detector, predictor, count, ws, connect):
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
                 pass
                 # print("[DETECTION INFOR]: NO EYES !")
-    GENERAL_VIDEO.releaseVideo()
+    generalVideo.releaseVideo()
     print("Thread terminating...")
-    
-    if connect:
+    if isConnected:
         ws.close()
         
 if __name__ == "__main__":
     try:
-        connect_websocket(f"ws://2a3b6495b1e4.ngrok.io/ws/realtime/{COMPANY_ROOM_CODE}/{ID}/")
+        connectWebsocket(f"ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/")
     except Exception as err:
         print("[WEBSOCKET INFOR]: " + str(err))
 
