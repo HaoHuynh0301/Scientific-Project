@@ -20,15 +20,18 @@ from os import system, name
 # import wiringpi as wiringpi
 
 # Intialize files,raspberry infor, and folders
-RASPBERRY_ID = '12'
+Datetime = DateTime()
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
+RASPBERRY_ID = '12'
 SERVER_ID = 'localhost:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
-Datetime = DateTime()
+JSON_PATH = 'data/RoomCode.json'
+DROWSINESS_VIDEO_PATH = 'media/detail/drowsiness/drowsiness'
+GENERAL_VIDEO_FILE_NAME = 'media/general/rasp_'
 
 # Opening JSON file, and return JSON data
-f = open('data/RoomCode.json')
+f = open(JSON_PATH)
 jsonData = json.load(f)
 companyRoomCode = jsonData['roomCode']
 f.close()
@@ -59,18 +62,17 @@ def connectWebsocket(url):
     ws.on_open = on_open
     ws.run_forever()
     
-def requestDeterminedRoomCode(ws, isConnected):
-    if isConnected:
-        SocketLocal = Socket(ws)
-        SocketLocal.getDeterminedRoomCode(RASPBERRY_ID)    
+def requestDeterminedRoomCode(ws):
+    SocketLocal = Socket(ws)
+    SocketLocal.getDeterminedRoomCode(RASPBERRY_ID)    
     print('[WEBSOCKET INFOR]: No determined roomcode detected!')
     time.sleep(2.0)
     
 def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
     # Intialize saving video path
-    generalVideoPath = 'media/general/rasp_' + str(datetime.now()) + '_connected.mp4'
+    generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '_connected.mp4'
     if isConnected:
-        generalVideoPath = 'media/general/rasp_' + str(datetime.now()) + '_disconnected.mp4'
+        generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '_disconnected.mp4'
         Socket = Socket(ws)
     generalVideo = VideoActivity(generalVideoPath)
     
@@ -140,7 +142,7 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
             if EAR < EAR_THRESHOLD:
                 if FRAME_COUNT_EAR == 0:
                     saveTime, sendTime = Datetime.getDateNameFormat()
-                    drosinessVideoWritter = VideoActivity('media/detail/drowsiness/drowsiness' + saveTime + '.mp4')
+                    drosinessVideoWritter = VideoActivity(DROWSINESS_VIDEO_PATH + saveTime + '.mp4')
                     FRAME_COUNT_EAR += 1
                 else:
                     FRAME_COUNT_EAR += 1
@@ -174,7 +176,7 @@ def on_message(ws, message):
 
     # Get message when server wanna get drowsiness video
     if messageData.get('piDeviceID') == RASPBERRY_ID:
-        alertTime = Datetime.getDateNameFormat2(messageData['time-occured'])
+        alertTime = Datetime.getDateNameFormat2(messageData.get('time-occured'))
         VideoActivity = VideoActivity()
         frames = VideoActivity.getRequestVideo(alertTime, 'drowsiness')    
         for frame in frames:       
@@ -183,7 +185,7 @@ def on_message(ws, message):
                     json.dumps({
                         'command': 'sendImgToBrowser',
                         'messageType': 'sendImg',
-                        'driveID': messageData['driveID'],
+                        'driveID': messageData.get('driveID'),
                         'frame': frame,
                         'time-happened': str(datetime.now())
                     })
@@ -194,10 +196,10 @@ def on_message(ws, message):
     
     # Get determine roomCode  
     if messageData.get('command') == 'getRoomCode':
-        if messageData['id'] == RASPBERRY_ID:
+        if messageData.get('id') == RASPBERRY_ID:
             companyRoomCode = messageData.get('command')
             # Update roomCode JSON file
-            f = open('data/RoomCode.json', 'w')
+            f = open(JSON_PATH, 'w')
             JSON_DATA = {
                 'roomCode': companyRoomCode
             }
@@ -219,7 +221,7 @@ def on_open(ws):
         if isGeneralRoomConnected:
             detecteAlert(vs, detector, predictor, sensorCount, ws, True)
         else:
-            requestDeterminedRoomCode(ws, True)
+            requestDeterminedRoomCode(ws)
     thread.start_new_thread(run, ()) 
         
 if __name__ == '__main__':
