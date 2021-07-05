@@ -6,14 +6,14 @@ class Socket:
     def __init__(self, ws):
         self.ws = ws
         
-    def sendAlertToServer(self, message, senddatetime, temp_ws):
+    def sendAlertToServer(self, message, sendDateTime):
         pp = json.dumps({
             "command": 'alert',
             'name': message,
-            'time': senddatetime,
+            'time': sendDateTime,
         })
         try:
-            temp_ws.send(pp)
+            self.ws.send(pp)
         except Exception as e:
             print("[INFOR]: " + str(e))
             

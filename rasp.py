@@ -10,25 +10,30 @@ try:
 except ImportError:
     import _thread as thread
 from model.EAR_calculator import *
-from libs.VideoActivity import VideoActivity
-from libs.DateTime import DateTime
-from libs.Socket import Socket
+from libs.videoutils import VideoUtils
+from libs.datetime import DateTime
+from libs.socket import Socket
 from imutils import face_utils
 from imutils.video import VideoStream
 from datetime import datetime
 from os import system, name
+import signal
 # import wiringpi as wiringpi
 
 # Intialize files,raspberry infor, and folders
 Datetime = DateTime()
 HOSTNAME = socket.gethostname()
-IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-RASPBERRY_ID = '12'
+print(HOSTNAME)
+IP_ADDRESS = '192.168.1.6'
+# socket.gethostbyname(HOSTNAME)
+RASPBERRY_ID = '1'
 SERVER_ID = 'localhost:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 JSON_PATH = 'data/RoomCode.json'
 DROWSINESS_VIDEO_PATH = 'media/detail/drowsiness/drowsiness'
 GENERAL_VIDEO_FILE_NAME = 'media/general/rasp_'
+generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '.mp4'
+generalVideo = VideoUtils(generalVideoPath)
 
 # Opening JSON file, and return JSON data
 f = open(JSON_PATH)
@@ -54,6 +59,14 @@ print('[INFOR]: Predictor is ready!')
 sensorCount = 0
 print('[INFOR]: MQ3 SENSOR is ready!')
 
+# Ctrl-C pressed handle
+def handlerSignal(signum, frame):
+    res = input("Ctrl-c was pressed. Do you really want to exit? y/n ")
+    if res == 'y':
+        generalVideo.releaseVideo()
+        exit(1)
+signal.signal(signal.SIGINT, handlerSignal)
+
 def connectWebsocket(url):
     ws = websocket.WebSocketApp(url,
                                 on_message = on_message,
@@ -70,11 +83,9 @@ def requestDeterminedRoomCode(ws):
     
 def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
     # Intialize saving video path
-    generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '_connected.mp4'
     if isConnected:
-        generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '_disconnected.mp4'
         Socket = Socket(ws)
-    generalVideo = VideoActivity(generalVideoPath)
+    generalVideo = VideoUtils(generalVideoPath)
     
     EAR_THRESHOLD = 0.2
     CONSECUTIVE_FRAMES = 100
@@ -103,7 +114,7 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
         #  sendTime = str(datetime.now())
         #  print('[DETECTION INFOR]: Alcohol Detected')
         #  if isConnected:
-        #   Socket.sendToDjango('Alcohol Detected', sendTime, ws)
+        #   Socket.sendAlertToServer('Alcohol Detected', sendTime)
         # sensorCount = 0
         # Try to connect to Webserver
         if not isConnected:
@@ -142,7 +153,7 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
             if EAR < EAR_THRESHOLD:
                 if FRAME_COUNT_EAR == 0:
                     saveTime, sendTime = Datetime.getDateNameFormat()
-                    drosinessVideoWritter = VideoActivity(DROWSINESS_VIDEO_PATH + saveTime + '.mp4')
+                    drosinessVideoWritter = VideoUtils(DROWSINESS_VIDEO_PATH + saveTime + '.mp4')
                     FRAME_COUNT_EAR += 1
                 else:
                     FRAME_COUNT_EAR += 1
@@ -152,7 +163,7 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
                     if isConnected:
-                        Socket.sendAlertToServer('Drowsiness', sendTime, ws)
+                        Socket.sendAlertToServer('Drowsiness', sendTime)
                     drosinessVideoWritter.releaseVideo()
                     FRAME_COUNT_EAR = 0
             else:
@@ -164,21 +175,18 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
                 pass
                 # print('[DETECTION INFOR]: NO EYES !')
-    generalVideo.releaseVideo()
-    print('Thread terminating...')
     if isConnected:
         ws.close()
 
 def on_message(ws, message):
     # Load message data
     messageData = json.loads(message)
-    print(messageData)
 
     # Get message when server wanna get drowsiness video
     if messageData.get('piDeviceID') == RASPBERRY_ID:
         alertTime = Datetime.getDateNameFormat2(messageData.get('time-occured'))
-        VideoActivity = VideoActivity()
-        frames = VideoActivity.getRequestVideo(alertTime, 'drowsiness')    
+        VideoUtils = VideoUtils()
+        frames = VideoUtils.getRequestVideo(alertTime, 'drowsiness')    
         for frame in frames:       
             try:
                 ws.send(
@@ -229,4 +237,4 @@ if __name__ == '__main__':
         connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
     except Exception as err:
         print('[WEBSOCKET INFOR]: ' + str(err))
-
+        

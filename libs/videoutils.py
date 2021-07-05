@@ -10,7 +10,7 @@ import cv2
 import time
 import json
 
-class VideoActivity:
+class VideoUtils:
     
     def __init__(self, path=None):
         super().__init__()
