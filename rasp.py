@@ -106,7 +106,7 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
         #   Socket.sendToDjango('Alcohol Detected', sendTime, ws)
         # sensorCount = 0
         # Try to connect to Webserver
-        if isConnected == False:
+        if not isConnected:
             reconnectFrameCount += 1
             if reconnectFrameCount >= RECONNECT_FRAME:
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
