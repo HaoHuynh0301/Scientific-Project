@@ -1,7 +1,6 @@
 from datetime import datetime
 
 class DateTime:
-    
     def __init__(self):
         super().__init__()
         

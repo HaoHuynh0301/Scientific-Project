@@ -13,6 +13,7 @@ from model.EAR_calculator import *
 from libs.videoutils import VideoUtils
 from libs.datetime import DateTime
 from libs.socket import Socket
+from libs.utils import Utils
 from imutils import face_utils
 from imutils.video import VideoStream
 from datetime import datetime
@@ -23,11 +24,9 @@ import signal
 # Intialize files,raspberry infor, and folders
 Datetime = DateTime()
 HOSTNAME = socket.gethostname()
-print(HOSTNAME)
-IP_ADDRESS = '192.168.1.6'
-# socket.gethostbyname(HOSTNAME)
-RASPBERRY_ID = '1'
-SERVER_ID = 'localhost:8000'
+IP_ADDRESS = socket.gethostbyname(HOSTNAME)
+RASPBERRY_ID = '12'
+SERVER_ID = '127.0.0.1:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 JSON_PATH = 'data/RoomCode.json'
 DROWSINESS_VIDEO_PATH = 'media/detail/drowsiness/drowsiness'
@@ -36,14 +35,7 @@ generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '.mp4'
 generalVideo = VideoUtils(generalVideoPath)
 
 # Opening JSON file, and return JSON data
-f = open(JSON_PATH)
-jsonData = json.load(f)
-companyRoomCode = jsonData['roomCode']
-f.close()
-
-isGeneralRoomConnected = True
-if companyRoomCode == 'general':
-    isGeneralRoomConnected = False
+isGeneralRoomConnected, companyRoomCode = Utils.getCompanyCode()
 
 # Intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
 print('[INFOR]: Loading the predictor ...')
@@ -79,12 +71,12 @@ def requestDeterminedRoomCode(ws):
     SocketLocal = Socket(ws)
     SocketLocal.getDeterminedRoomCode(RASPBERRY_ID)    
     print('[WEBSOCKET INFOR]: No determined roomcode detected!')
-    time.sleep(2.0)
+    time.sleep(0.5)
     
-def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
+def detecteAlert(**kwargs):
     # Intialize saving video path
-    if isConnected:
-        Socket = Socket(ws)
+    if kwargs['isConnected']:
+        SocketLocal = Socket(kwargs['ws'])
     generalVideo = VideoUtils(generalVideoPath)
     
     EAR_THRESHOLD = 0.2
@@ -98,7 +90,7 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
     RECONNECT_FRAME = 300
     reconnectFrameCount = 0
     
-    if isConnected:
+    if kwargs['isConnected']:
         print('[INFOR]: Start online dectecting ...')
     else:
         print('[INFOR]: Start offline dectecting ...')
@@ -117,7 +109,7 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
         #   Socket.sendAlertToServer('Alcohol Detected', sendTime)
         # sensorCount = 0
         # Try to connect to Webserver
-        if not isConnected:
+        if not kwargs['isConnected']:
             reconnectFrameCount += 1
             if reconnectFrameCount >= RECONNECT_FRAME:
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
@@ -162,8 +154,8 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
                     drosinessVideoWritter.writeFrames(frame)
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
-                    if isConnected:
-                        Socket.sendAlertToServer('Drowsiness', sendTime)
+                    if kwargs['isConnected']:
+                        SocketLocal.sendAlertToServer('Drowsiness', sendTime)
                     drosinessVideoWritter.releaseVideo()
                     FRAME_COUNT_EAR = 0
             else:
@@ -175,16 +167,15 @@ def detecteAlert(vs, detector, predictor, sensorCount, ws, isConnected):
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
                 pass
                 # print('[DETECTION INFOR]: NO EYES !')
-    if isConnected:
-        ws.close()
+    if kwargs['isConnected']:
+        kwargs['ws'].close()
 
 def on_message(ws, message):
     # Load message data
     messageData = json.loads(message)
-
     # Get message when server wanna get drowsiness video
     if messageData.get('piDeviceID') == RASPBERRY_ID:
-        alertTime = Datetime.getDateNameFormat2(messageData.get('time-occured'))
+        alertTime = Datetime.getDateNameFormat2(messageData['time-occured'])
         VideoUtils = VideoUtils()
         frames = VideoUtils.getRequestVideo(alertTime, 'drowsiness')    
         for frame in frames:       
@@ -193,7 +184,7 @@ def on_message(ws, message):
                     json.dumps({
                         'command': 'sendImgToBrowser',
                         'messageType': 'sendImg',
-                        'driveID': messageData.get('driveID'),
+                        'driveID': messageData['driveID'],
                         'frame': frame,
                         'time-happened': str(datetime.now())
                     })
@@ -204,33 +195,36 @@ def on_message(ws, message):
     
     # Get determine roomCode  
     if messageData.get('command') == 'getRoomCode':
-        if messageData.get('id') == RASPBERRY_ID:
-            companyRoomCode = messageData.get('command')
+        if messageData['id'] == RASPBERRY_ID:
             # Update roomCode JSON file
             f = open(JSON_PATH, 'w')
             JSON_DATA = {
-                'roomCode': companyRoomCode
+                'roomCode': messageData['roomCode']
             }
             json.dump(JSON_DATA, f)
             f.close()
-            isGeneralRoomConnected = True
-            connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
+            try:
+                connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
+            except Exception as err:
+                print('[WEBSOCKET INFOR]: ' + str(err))
         
 def on_error(ws, error):
-    print('[Socket Error]: ' + error)
+    print('[SOCKET ERROR]: ' + error)
 
 def on_close(ws):
     print('[SOCKET INFORMATION]: Can not connect to Websocket ...')
     detecteAlert(vs, detector, predictor, sensorCount, ws, False)
 
 def on_open(ws):
-    def run(*args):
-        print('[SOCKET INFORMATION]: Connect to Websocket ...')
-        if isGeneralRoomConnected:
-            detecteAlert(vs, detector, predictor, sensorCount, ws, True)
-        else:
-            requestDeterminedRoomCode(ws)
-    thread.start_new_thread(run, ()) 
+    print('[SOCKET INFORMATION]: Connect to Websocket ...')
+    # vs, detector, predictor, sensorCount, ws, isConnected
+    isConnectedRoomCode, companyRoomCode = Utils.getCompanyCode()
+    if isConnectedRoomCode:
+        detecteAlert(vs = vs, detector = detector, 
+                     predictor = predictor,sensorCount = sensorCount,
+                     ws = ws, isConnected = True)
+    elif isConnectedRoomCode == False:
+        requestDeterminedRoomCode(ws)
         
 if __name__ == '__main__':
     try:
