@@ -87,7 +87,7 @@ def detecteAlert(**kwargs):
     FRAME_COUNT_DISTR = 0
     
     # Websocket connecting detection
-    RECONNECT_FRAME = 300
+    RECONNECT_FRAME = 150
     reconnectFrameCount = 0
     
     if kwargs['isConnected']:
@@ -203,8 +203,9 @@ def on_message(ws, message):
             }
             json.dump(JSON_DATA, f)
             f.close()
+            newRoomCode = messageData['roomCode']
             try:
-                connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
+                connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{newRoomCode}/{RASPBERRY_ID}/')
             except Exception as err:
                 print('[WEBSOCKET INFOR]: ' + str(err))
         
@@ -213,18 +214,27 @@ def on_error(ws, error):
 
 def on_close(ws):
     print('[SOCKET INFORMATION]: Can not connect to Websocket ...')
-    detecteAlert(vs, detector, predictor, sensorCount, ws, False)
+    detecteAlert(vs = vs, 
+                     detector = detector, 
+                     predictor = predictor, 
+                     sensorCount = sensorCount,
+                     ws = ws, 
+                     isConnected = False)
 
 def on_open(ws):
-    print('[SOCKET INFORMATION]: Connect to Websocket ...')
-    # vs, detector, predictor, sensorCount, ws, isConnected
-    isConnectedRoomCode, companyRoomCode = Utils.getCompanyCode()
-    if isConnectedRoomCode:
-        detecteAlert(vs = vs, detector = detector, 
-                     predictor = predictor,sensorCount = sensorCount,
-                     ws = ws, isConnected = True)
-    elif isConnectedRoomCode == False:
-        requestDeterminedRoomCode(ws)
+    def run(*args):
+        print('[SOCKET INFORMATION]: Connect to Websocket ...')
+        isConnectedRoomCode, companyRoomCode = Utils.getCompanyCode()
+        if isConnectedRoomCode:
+            detecteAlert(vs = vs, 
+                        detector = detector, 
+                        predictor = predictor, 
+                        sensorCount = sensorCount,
+                        ws = ws, 
+                        isConnected = True)
+        elif not isConnectedRoomCode:
+            requestDeterminedRoomCode(ws)
+    thread.start_new_thread(run, ()) 
         
 if __name__ == '__main__':
     try:
