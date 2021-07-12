@@ -25,7 +25,8 @@ import signal
 Datetime = DateTime()
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-RASPBERRY_ID = '12'
+RASPBERRY_ID = '6'
+# http://e5582bc7c3e5.ngrok.io/
 SERVER_ID = '127.0.0.1:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 JSON_PATH = 'data/RoomCode.json'
@@ -94,6 +95,7 @@ def detecteAlert(**kwargs):
         print('[INFOR]: Start online dectecting ...')
     else:
         print('[INFOR]: Start offline dectecting ...')
+    time.sleep(1.5)
     while True:
         # Alcolho detection
         # my_input=wiringpi.digitalRead(25)
