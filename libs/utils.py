@@ -1,6 +1,7 @@
 import json
 
 class Utils:
+    
     @staticmethod
     def getCompanyCode():
         JSON_PATH = 'data/RoomCode.json'

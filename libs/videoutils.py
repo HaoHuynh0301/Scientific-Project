@@ -30,9 +30,11 @@ class VideoUtils:
         writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), fps, size)
         return writter
     
-    def getRequestVideo(self, tmpDateTime, message):
+    @staticmethod
+    def getRequestVideo(tmpDateTime, message):
         frames = []
         cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".mp4") 
+        print('here')
         sendingFrameCount = 0     
         while(cap.isOpened()):
             sendingFrameCount += 1

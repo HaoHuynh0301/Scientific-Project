@@ -77,10 +77,10 @@ def detecteAlert(**kwargs):
     # Intialize saving video path
     if kwargs['isConnected']:
         SocketLocal = Socket(kwargs['ws'])
-    generalVideo = VideoUtils(generalVideoPath)
     
     EAR_THRESHOLD = 0.2
     CONSECUTIVE_FRAMES = 100
+    NOEYES_FRAMES = 200
 
     # Initialize two counters
     FRAME_COUNT_EAR = 0
@@ -94,7 +94,6 @@ def detecteAlert(**kwargs):
         print('[INFOR]: Start online dectecting ...')
     else:
         print('[INFOR]: Start offline dectecting ...')
-        
     while True:
         # Alcolho detection
         # my_input=wiringpi.digitalRead(25)
@@ -165,19 +164,28 @@ def detecteAlert(**kwargs):
         else:
             FRAME_COUNT_DISTR += 1
             if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
-                pass
-                # print('[DETECTION INFOR]: NO EYES !')
+                saveTime, sendTime = Datetime.getDateNameFormat()
+                if FRAME_COUNT_DISTR == NOEYES_FRAMES:
+                    print('[DETECTION INFOR]: NO EYES !')
+                    if kwargs['isConnected']:
+                        SocketLocal.sendAlertToServer('Noeyes', sendTime)
+                        
     if kwargs['isConnected']:
         kwargs['ws'].close()
 
 def on_message(ws, message):
     # Load message data
     messageData = json.loads(message)
+    print(messageData)
+    
     # Get message when server wanna get drowsiness video
     if messageData.get('piDeviceID') == RASPBERRY_ID:
         alertTime = Datetime.getDateNameFormat2(messageData['time-occured'])
-        VideoUtils = VideoUtils()
-        frames = VideoUtils.getRequestVideo(alertTime, 'drowsiness')    
+        print(alertTime)
+        try:
+            frames = VideoUtils.getRequestVideo(alertTime, 'drowsiness')    
+        except Exception as err:
+            print(str(err))
         for frame in frames:       
             try:
                 ws.send(
