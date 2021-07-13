@@ -25,7 +25,7 @@ import signal
 Datetime = DateTime()
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-RASPBERRY_ID = '6'
+RASPBERRY_ID = '16'
 # http://e5582bc7c3e5.ngrok.io/
 SERVER_ID = '127.0.0.1:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
@@ -43,7 +43,6 @@ print('[INFOR]: Loading the predictor ...')
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(MODEL_PATH)
 vs = cv2.VideoCapture(0)
-time.sleep(0.5)
 print('[INFOR]: Predictor is ready!')
 
 # MQ3 sensor intialize
@@ -80,23 +79,24 @@ def detecteAlert(**kwargs):
         SocketLocal = Socket(kwargs['ws'])
     
     EAR_THRESHOLD = 0.2
-    CONSECUTIVE_FRAMES = 100
-    NOEYES_FRAMES = 200
+    CONSECUTIVE_FRAMES = 40
+    NOEYES_FRAMES = 60
 
     # Initialize two counters
     FRAME_COUNT_EAR = 0
     FRAME_COUNT_DISTR = 0
     
     # Websocket connecting detection
-    RECONNECT_FRAME = 150
+    RECONNECT_FRAME = 80
     reconnectFrameCount = 0
     
     if kwargs['isConnected']:
         print('[INFOR]: Start online dectecting ...')
     else:
         print('[INFOR]: Start offline dectecting ...')
-    time.sleep(1.5)
+    
     while True:
+        time.sleep(0.2)
         # Alcolho detection
         # my_input=wiringpi.digitalRead(25)
         # if(my_input):
