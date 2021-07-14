@@ -5,6 +5,8 @@ import json
 import dlib
 import cv2
 import imutils
+from threading import Thread
+import threading
 try:
     import thread
 except ImportError:
@@ -13,7 +15,7 @@ from model.EAR_calculator import *
 from libs.videoutils import VideoUtils
 from libs.datetime import DateTime
 from libs.socket import Socket
-from libs.utils import Utils
+from libs.utils import Utils, SoundThread
 from imutils import face_utils
 from imutils.video import VideoStream
 from datetime import datetime
@@ -79,7 +81,7 @@ def detecteAlert(**kwargs):
         SocketLocal = Socket(kwargs['ws'])
     
     EAR_THRESHOLD = 0.2
-    CONSECUTIVE_FRAMES = 40
+    CONSECUTIVE_FRAMES = 20
     NOEYES_FRAMES = 60
 
     # Initialize two counters
@@ -96,7 +98,7 @@ def detecteAlert(**kwargs):
         print('[INFOR]: Start offline dectecting ...')
     
     while True:
-        time.sleep(0.2)
+        # time.sleep(0.2)
         # Alcolho detection
         # my_input=wiringpi.digitalRead(25)
         # if(my_input):
@@ -153,8 +155,15 @@ def detecteAlert(**kwargs):
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     drosinessVideoWritter.writeFrames(frame)
-                if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
+                if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:  
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
+                    
+                    # Play Music on Separate Thread (in background)  
+                    soundThread = SoundThread()
+                    t = threading.Thread(target = soundThread.playSound)
+                    t.start()
+                    time.sleep(5.0)
+                    
                     if kwargs['isConnected']:
                         SocketLocal.sendAlertToServer('Drowsiness', sendTime)
                     drosinessVideoWritter.releaseVideo()

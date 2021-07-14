@@ -1,7 +1,11 @@
 import json
+from playsound import playsound
+from threading import Thread
+import atexit
+import time 
+import threading
 
 class Utils:
-    
     @staticmethod
     def getCompanyCode():
         JSON_PATH = 'data/RoomCode.json'
@@ -13,3 +17,24 @@ class Utils:
         if companyRoomCode == 'general':
             isConnected = False
         return isConnected, companyRoomCode
+    
+    
+class SoundThread:
+
+    def startMusic(self):
+        i = 0
+        @atexit.register
+        def goodbye():
+            print ("'CLEANLY' kill sub-thread with value: %s [THREAD: %s]" %
+                (i, threading.currentThread().ident))
+        while True:
+            i += 1
+            time.sleep(1)
+            
+    def afterTimeout(self):
+        print("KILL MAIN THREAD: %s" % threading.currentThread().ident)
+        raise SystemExit
+    
+    @staticmethod
+    def playSound():
+        playsound('media/sound-alert-[AudioTrimmer.com].mp3')
