@@ -25,10 +25,14 @@ class VideoUtils:
         self.videoWritter.release()
         
     def createVideo(self):
-        fps = 10.0
+        fps = 30.0
         size = (225,300)
         writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc('m', 'p', '4', 'v'), fps, size)
         return writter
+    
+    @staticmethod
+    def deleteVideoWritter(videoPath):
+        os.remove(videoPath)
     
     @staticmethod
     def getRequestVideo(tmpDateTime, message):

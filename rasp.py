@@ -27,7 +27,7 @@ import signal
 Datetime = DateTime()
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-RASPBERRY_ID = '16'
+RASPBERRY_ID = '17'
 # http://e5582bc7c3e5.ngrok.io/
 SERVER_ID = '127.0.0.1:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
@@ -55,7 +55,7 @@ print('[INFOR]: MQ3 SENSOR is ready!')
 
 # Ctrl-C pressed handle
 def handlerSignal(signum, frame):
-    res = input("Ctrl-c was pressed. Do you really want to exit? y/n ")
+    res = input('Ctrl-c was pressed. Do you really want to exit? y/n ')
     if res == 'y':
         generalVideo.releaseVideo()
         exit(1)
@@ -92,13 +92,18 @@ def detecteAlert(**kwargs):
     RECONNECT_FRAME = 80
     reconnectFrameCount = 0
     
+    videoContext = {
+        'isCreated': 'False',
+        'videoPath': ''
+    }
+    
     if kwargs['isConnected']:
         print('[INFOR]: Start online dectecting ...')
     else:
         print('[INFOR]: Start offline dectecting ...')
     
     while True:
-        # time.sleep(0.2)
+        time.sleep(0.2)
         # Alcolho detection
         # my_input=wiringpi.digitalRead(25)
         # if(my_input):
@@ -125,6 +130,7 @@ def detecteAlert(**kwargs):
         rects = detector(frame, 0)
 
         if len(rects) > 0:
+            print("Cos nguoi")
             rect = get_max_area_rect(rects)
             (x, y, w, h) = face_utils.rect_to_bb(rect)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -146,10 +152,13 @@ def detecteAlert(**kwargs):
             cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
 
             if EAR < EAR_THRESHOLD:
+                print(FRAME_COUNT_EAR)
                 if FRAME_COUNT_EAR == 0:
                     saveTime, sendTime = Datetime.getDateNameFormat()
                     drosinessVideoWritter = VideoUtils(DROWSINESS_VIDEO_PATH + saveTime + '.mp4')
                     FRAME_COUNT_EAR += 1
+                    videoContext['isCreated'] = 'True'
+                    videoContext['videoPath'] = str(drosinessVideoWritter.videoPath)
                 else:
                     FRAME_COUNT_EAR += 1
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
@@ -157,18 +166,23 @@ def detecteAlert(**kwargs):
                     drosinessVideoWritter.writeFrames(frame)
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:  
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
-                    
+
                     # Play Music on Separate Thread (in background)  
                     soundThread = SoundThread()
                     t = threading.Thread(target = soundThread.playSound)
                     t.start()
-                    time.sleep(5.0)
                     
                     if kwargs['isConnected']:
                         SocketLocal.sendAlertToServer('Drowsiness', sendTime)
                     drosinessVideoWritter.releaseVideo()
                     FRAME_COUNT_EAR = 0
+                    videoContext['isCreated'] = 'False'
+                    videoContext['videoPath'] = ''
             else:
+                if videoContext['isCreated'] == 'True':
+                    VideoUtils.deleteVideoWritter(videoContext['videoPath'])
+                    videoContext['isCreated'] = 'False'
+                    videoContext['videoPath'] = ''
                 FRAME_COUNT_EAR = 0
 
             FRAME_COUNT_DISTR = 0
@@ -178,6 +192,12 @@ def detecteAlert(**kwargs):
                 saveTime, sendTime = Datetime.getDateNameFormat()
                 if FRAME_COUNT_DISTR == NOEYES_FRAMES:
                     print('[DETECTION INFOR]: NO EYES !')
+                    
+                    # Play Music on Separate Thread (in background)  
+                    soundThread = SoundThread()
+                    t = threading.Thread(target = soundThread.playSound)
+                    t.start()
+                    
                     if kwargs['isConnected']:
                         SocketLocal.sendAlertToServer('Noeyes', sendTime)
                         
@@ -213,8 +233,8 @@ def on_message(ws, message):
                 print('[INFOR]' + str(err))
     
     # Get determine roomCode  
-    if messageData.get('command') == 'getRoomCode':
-        if messageData['id'] == RASPBERRY_ID:
+    if messageData.get('command') == 'resetRasp':
+        if messageData['id'] == int(RASPBERRY_ID):
             # Update roomCode JSON file
             f = open(JSON_PATH, 'w')
             JSON_DATA = {
@@ -222,7 +242,9 @@ def on_message(ws, message):
             }
             json.dump(JSON_DATA, f)
             f.close()
+            ws.close()
             newRoomCode = messageData['roomCode']
+            time.sleep(2.0)
             try:
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{newRoomCode}/{RASPBERRY_ID}/')
             except Exception as err:
@@ -253,6 +275,7 @@ def on_open(ws):
                         isConnected = True)
         elif not isConnectedRoomCode:
             requestDeterminedRoomCode(ws)
+            
     thread.start_new_thread(run, ()) 
         
 if __name__ == '__main__':
