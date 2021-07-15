@@ -20,7 +20,6 @@ class Utils:
     
     
 class SoundThread:
-
     def startMusic(self):
         i = 0
         @atexit.register
@@ -35,6 +34,5 @@ class SoundThread:
         print("KILL MAIN THREAD: %s" % threading.currentThread().ident)
         raise SystemExit
     
-    @staticmethod
-    def playSound():
-        playsound('media/sound-alert-[AudioTrimmer.com].mp3')
+    def playSound(self):
+        playsound('media/sound/sound-alert-[AudioTrimmer.com]-[AudioTrimmer.com].mp3')
