@@ -130,7 +130,6 @@ def detecteAlert(**kwargs):
         rects = detector(frame, 0)
 
         if len(rects) > 0:
-            print("Cos nguoi")
             rect = get_max_area_rect(rects)
             (x, y, w, h) = face_utils.rect_to_bb(rect)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -244,7 +243,7 @@ def on_message(ws, message):
             f.close()
             ws.close()
             newRoomCode = messageData['roomCode']
-            time.sleep(2.0)
+            time.sleep(1.0)
             try:
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{newRoomCode}/{RASPBERRY_ID}/')
             except Exception as err:
@@ -273,6 +272,7 @@ def on_open(ws):
                         sensorCount = sensorCount,
                         ws = ws, 
                         isConnected = True)
+            
         elif not isConnectedRoomCode:
             requestDeterminedRoomCode(ws)
             
