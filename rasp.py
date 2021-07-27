@@ -27,8 +27,8 @@ import signal
 Datetime = DateTime()
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-RASPBERRY_ID = '17'
-# http://e5582bc7c3e5.ngrok.io/
+RASPBERRY_ID = 15
+# http://0dd9113bd398.ngrok.io/
 SERVER_ID = '127.0.0.1:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 JSON_PATH = 'data/RoomCode.json'
@@ -82,7 +82,7 @@ def detecteAlert(**kwargs):
     
     EAR_THRESHOLD = 0.2
     CONSECUTIVE_FRAMES = 20
-    NOEYES_FRAMES = 60
+    NOEYES_FRAMES = 20
 
     # Initialize two counters
     FRAME_COUNT_EAR = 0
@@ -151,7 +151,6 @@ def detecteAlert(**kwargs):
             cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
 
             if EAR < EAR_THRESHOLD:
-                print(FRAME_COUNT_EAR)
                 if FRAME_COUNT_EAR == 0:
                     saveTime, sendTime = Datetime.getDateNameFormat()
                     drosinessVideoWritter = VideoUtils(DROWSINESS_VIDEO_PATH + saveTime + '.mp4')
@@ -209,7 +208,8 @@ def on_message(ws, message):
     print(messageData)
     
     # Get message when server wanna get drowsiness video
-    if messageData.get('piDeviceID') == RASPBERRY_ID:
+    if messageData.get('piDeviceID') == str(RASPBERRY_ID):
+        print('cc')
         alertTime = Datetime.getDateNameFormat2(messageData['time-occured'])
         print(alertTime)
         try:
@@ -232,7 +232,8 @@ def on_message(ws, message):
                 print('[INFOR]' + str(err))
     
     # Get determine roomCode  
-    if messageData.get('command') == 'resetRasp':
+    if messageData.get('command') == 'getRoomCode':
+        
         if messageData['id'] == int(RASPBERRY_ID):
             # Update roomCode JSON file
             f = open(JSON_PATH, 'w')
