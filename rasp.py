@@ -27,13 +27,13 @@ import signal
 Datetime = DateTime()
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
-RASPBERRY_ID = 15
+RASPBERRY_ID = 17
 # http://0dd9113bd398.ngrok.io/
 SERVER_ID = '127.0.0.1:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 JSON_PATH = 'data/RoomCode.json'
 DROWSINESS_VIDEO_PATH = 'media/detail/drowsiness/drowsiness'
-NOEYES_VIDEO_PATH = 'media/detail/noeyes/noeyes'
+NOEYES_VIDEO_PATH = 'media/detail/noeye/noeye'
 GENERAL_VIDEO_FILE_NAME = 'media/general/rasp_'
 generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '.mp4'
 generalVideo = VideoUtils(generalVideoPath)
@@ -120,7 +120,7 @@ def detecteAlert(**kwargs):
         #  sendTime = str(datetime.now())
         #  print('[DETECTION INFOR]: Alcohol Detected')
         #  if isConnected:
-        #   Socket.sendAlertToServer('Alcohol Detected', sendTime)
+        #   Socket.sendAlertToServer('Alcohol', sendTime)
         # sensorCount = 0
         # Try to connect to Webserver
         if not kwargs['isConnected']:
@@ -172,9 +172,9 @@ def detecteAlert(**kwargs):
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
 
                     # Play Music on Separate Thread (in background)  
-                    soundThread = SoundThread()
-                    t = threading.Thread(target = soundThread.playSound)
-                    t.start()
+                    # soundThread = SoundThread()
+                    # t = threading.Thread(target = soundThread.playSound)
+                    # t.start()
                     
                     if kwargs['isConnected']:
                         SocketLocal.sendAlertToServer('Drowsiness', sendTime)
@@ -206,7 +206,7 @@ def detecteAlert(**kwargs):
                 FRAME_COUNT_DISTR = 0
                 print('[DETECTION INFOR]: NO EYES !')
                 if kwargs['isConnected']:
-                    SocketLocal.sendAlertToServer('Noeyes', sendTime)
+                    SocketLocal.sendAlertToServer('Noeye', sendTime)
                 
                 # Play Music on Separate Thread (in background)  
                 # soundThread = SoundThread()
@@ -227,9 +227,10 @@ def on_message(ws, message):
     # Get message when server wanna get drowsiness video
     if messageData.get('piDeviceID') == str(RASPBERRY_ID):
         alertTime = Datetime.getDateNameFormat2(messageData['time-occured'])
-        print(alertTime)
+        alertType = messageData['alertType'].lower()
+        print(alertType)
         try:
-            frames = VideoUtils.getRequestVideo(alertTime, 'drowsiness')    
+            frames = VideoUtils.getRequestVideo(alertTime, alertType)    
         except Exception as err:
             print(str(err))
         for frame in frames:       
