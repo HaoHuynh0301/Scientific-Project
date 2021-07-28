@@ -18,6 +18,10 @@ class Utils:
             isConnected = False
         return isConnected, companyRoomCode
     
+    @staticmethod
+    def setReleaseContext(context, isCreated):
+        context['isCreated'] = isCreated
+        context['videoPath'] = ''
     
 class SoundThread:
     def startMusic(self):

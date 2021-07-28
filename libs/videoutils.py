@@ -38,7 +38,6 @@ class VideoUtils:
     def getRequestVideo(tmpDateTime, message):
         frames = []
         cap = cv2.VideoCapture("media/detail/" + message + "/" + message + tmpDateTime + ".mp4") 
-        print('here')
         sendingFrameCount = 0     
         while(cap.isOpened()):
             sendingFrameCount += 1

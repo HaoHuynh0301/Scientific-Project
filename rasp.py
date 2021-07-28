@@ -33,6 +33,7 @@ SERVER_ID = '127.0.0.1:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 JSON_PATH = 'data/RoomCode.json'
 DROWSINESS_VIDEO_PATH = 'media/detail/drowsiness/drowsiness'
+NOEYES_VIDEO_PATH = 'media/detail/noeyes/noeyes'
 GENERAL_VIDEO_FILE_NAME = 'media/general/rasp_'
 generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '.mp4'
 generalVideo = VideoUtils(generalVideoPath)
@@ -82,7 +83,7 @@ def detecteAlert(**kwargs):
     
     EAR_THRESHOLD = 0.2
     CONSECUTIVE_FRAMES = 20
-    NOEYES_FRAMES = 20
+    NOEYES_FRAMES = 40
 
     # Initialize two counters
     FRAME_COUNT_EAR = 0
@@ -92,7 +93,12 @@ def detecteAlert(**kwargs):
     RECONNECT_FRAME = 80
     reconnectFrameCount = 0
     
-    videoContext = {
+    drowsinessReleaseContext = {
+        'isCreated': 'False',
+        'videoPath': ''
+    }
+    
+    noeyesReleaseContext = {
         'isCreated': 'False',
         'videoPath': ''
     }
@@ -155,8 +161,8 @@ def detecteAlert(**kwargs):
                     saveTime, sendTime = Datetime.getDateNameFormat()
                     drosinessVideoWritter = VideoUtils(DROWSINESS_VIDEO_PATH + saveTime + '.mp4')
                     FRAME_COUNT_EAR += 1
-                    videoContext['isCreated'] = 'True'
-                    videoContext['videoPath'] = str(drosinessVideoWritter.videoPath)
+                    drowsinessReleaseContext['isCreated'] = 'True'
+                    drowsinessReleaseContext['videoPath'] = str(drosinessVideoWritter.videoPath)
                 else:
                     FRAME_COUNT_EAR += 1
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
@@ -174,30 +180,41 @@ def detecteAlert(**kwargs):
                         SocketLocal.sendAlertToServer('Drowsiness', sendTime)
                     drosinessVideoWritter.releaseVideo()
                     FRAME_COUNT_EAR = 0
-                    videoContext['isCreated'] = 'False'
-                    videoContext['videoPath'] = ''
+                    Utils.setReleaseContext(drowsinessReleaseContext, False)
             else:
-                if videoContext['isCreated'] == 'True':
-                    VideoUtils.deleteVideoWritter(videoContext['videoPath'])
-                    videoContext['isCreated'] = 'False'
-                    videoContext['videoPath'] = ''
+                if drowsinessReleaseContext['isCreated'] == 'True':
+                    VideoUtils.deleteVideoWritter(drowsinessReleaseContext['videoPath'])
+                    Utils.setReleaseContext(drowsinessReleaseContext, False)
                 FRAME_COUNT_EAR = 0
 
             FRAME_COUNT_DISTR = 0
+            if noeyesReleaseContext['isCreated'] == 'True':
+                VideoUtils.deleteVideoWritter(noeyesReleaseContext['videoPath'])
+                Utils.setReleaseContext(noeyesReleaseContext, False)
+                
         else:
-            FRAME_COUNT_DISTR += 1
-            if FRAME_COUNT_DISTR >= CONSECUTIVE_FRAMES:
+            if FRAME_COUNT_DISTR == 0:
                 saveTime, sendTime = Datetime.getDateNameFormat()
-                if FRAME_COUNT_DISTR == NOEYES_FRAMES:
-                    print('[DETECTION INFOR]: NO EYES !')
-                    
-                    # Play Music on Separate Thread (in background)  
-                    soundThread = SoundThread()
-                    t = threading.Thread(target = soundThread.playSound)
-                    t.start()
-                    
-                    if kwargs['isConnected']:
-                        SocketLocal.sendAlertToServer('Noeyes', sendTime)
+                noeyesVideoWritter = VideoUtils(NOEYES_VIDEO_PATH + saveTime + '.mp4')
+                FRAME_COUNT_DISTR += 1
+                noeyesReleaseContext['isCreated'] = 'True'
+                noeyesReleaseContext['videoPath'] = str(noeyesVideoWritter.videoPath)
+            else:
+                FRAME_COUNT_DISTR += 1
+                noeyesVideoWritter.writeFrames(frame)
+            if FRAME_COUNT_DISTR >= NOEYES_FRAMES:
+                FRAME_COUNT_DISTR = 0
+                print('[DETECTION INFOR]: NO EYES !')
+                if kwargs['isConnected']:
+                    SocketLocal.sendAlertToServer('Noeyes', sendTime)
+                
+                # Play Music on Separate Thread (in background)  
+                # soundThread = SoundThread()
+                # t = threading.Thread(target = soundThread.playSound)
+                # t.start()
+
+                noeyesVideoWritter.releaseVideo()
+                Utils.setReleaseContext(noeyesReleaseContext, False)
                         
     if kwargs['isConnected']:
         kwargs['ws'].close()
@@ -209,7 +226,6 @@ def on_message(ws, message):
     
     # Get message when server wanna get drowsiness video
     if messageData.get('piDeviceID') == str(RASPBERRY_ID):
-        print('cc')
         alertTime = Datetime.getDateNameFormat2(messageData['time-occured'])
         print(alertTime)
         try:
@@ -233,7 +249,6 @@ def on_message(ws, message):
     
     # Get determine roomCode  
     if messageData.get('command') == 'getRoomCode':
-        
         if messageData['id'] == int(RASPBERRY_ID):
             # Update roomCode JSON file
             f = open(JSON_PATH, 'w')
