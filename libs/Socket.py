@@ -12,6 +12,7 @@ class Socket:
             'name': message,
             'time': sendDateTime,
         })
+        print(self.ws)
         try:
             self.ws.send(pp)
         except Exception as e:
@@ -20,7 +21,7 @@ class Socket:
     def getDeterminedRoomCode(self, raspId):
         pp = json.dumps({
             "command": 'getRoomCode',
-            "id": raspId
+            "piDeviceID": raspId
         })
         try:
             self.ws.send(pp)
