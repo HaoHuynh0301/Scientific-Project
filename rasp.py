@@ -28,24 +28,28 @@ Datetime = DateTime()
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
 RASPBERRY_ID = 17
+threads = []
+
 # http://0dd9113bd398.ngrok.io/
 SERVER_ID = '127.0.0.1:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
-JSON_PATH = 'data/RoomCode.json'
 DROWSINESS_VIDEO_PATH = 'media/detail/drowsiness/drowsiness'
 NOEYES_VIDEO_PATH = 'media/detail/noeye/noeye'
 GENERAL_VIDEO_FILE_NAME = 'media/general/rasp_'
 generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '.mp4'
 generalVideo = VideoUtils(generalVideoPath)
+vs = cv2.VideoCapture(0)
 
 # Opening JSON file, and return JSON data
 companyRoomCode = 'general'
+isOffice = False
+disConnected = False
+threadCode = ''
 
 # Intialize the dlib's face detector model as 'detector' and the landmark predictor model as 'predictor'
 print('[INFOR]: Loading the predictor ...')
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(MODEL_PATH)
-vs = cv2.VideoCapture(0)
 print('[INFOR]: Predictor is ready!')
 
 # MQ3 sensor intialize
@@ -59,25 +63,28 @@ def handlerSignal(signum, frame):
     res = input('Ctrl-c was pressed. Do you really want to exit? y/n ')
     if res == 'y':
         generalVideo.releaseVideo()
+        system('clear')
         exit(1)
 signal.signal(signal.SIGINT, handlerSignal)
 
 def connectWebsocket(url):
+    # websocket.enableTrace(True)
     ws = websocket.WebSocketApp(url,
                                 on_message = on_message,
                                 on_error = on_error,
-                                on_close = on_close)
-    ws.on_open = on_open
+                                on_close = on_close,
+                                on_open = on_open)
+    ws.daemon = True
     ws.run_forever()
     
 def requestDeterminedRoomCode(ws):
     SocketLocal = Socket(ws)
     SocketLocal.getDeterminedRoomCode(RASPBERRY_ID)    
-    print('[WEBSOCKET INFOR]: No determined roomcode detected!')
     time.sleep(0.5)
     
 def detecteAlert(**kwargs):
     # Intialize saving video path
+    global disConnected
     if kwargs['isConnected']:
         SocketLocal = Socket(kwargs['ws'])
     
@@ -90,7 +97,7 @@ def detecteAlert(**kwargs):
     FRAME_COUNT_DISTR = 0
     
     # Websocket connecting detection
-    RECONNECT_FRAME = 50
+    RECONNECT_FRAME = 40
     reconnectFrameCount = 0
     
     drowsinessReleaseContext = {
@@ -103,13 +110,21 @@ def detecteAlert(**kwargs):
         'videoPath': ''
     }
     
+    # system('clear')
     if kwargs['isConnected']:
         print('[INFOR]: Start online dectecting ...')
     else:
         print('[INFOR]: Start offline dectecting ...')
     
+    # if disConnected:
+    #     disConnected = False
+        
     while True:
-        time.sleep(0.2)
+        time.sleep(0.4)
+        if disConnected:
+            break
+        # system('clear')
+        # print('[INFOR]: ' + str(threading.get_ident()))
         # Alcolho detection
         # my_input=wiringpi.digitalRead(25)
         # if(my_input):
@@ -123,7 +138,7 @@ def detecteAlert(**kwargs):
         #   Socket.sendAlertToServer('Alcohol', sendTime)
         # sensorCount = 0
         # Try to connect to Webserver
-        if not kwargs['isConnected']:
+        if not kwargs['isConnected'] and not kwargs['isOffice']:
             reconnectFrameCount += 1
             if reconnectFrameCount >= RECONNECT_FRAME:
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
@@ -163,21 +178,23 @@ def detecteAlert(**kwargs):
                     FRAME_COUNT_EAR += 1
                     drowsinessReleaseContext['isCreated'] = 'True'
                     drowsinessReleaseContext['videoPath'] = str(drosinessVideoWritter.videoPath)
-                else:
+                elif FRAME_COUNT_EAR != 0:
                     FRAME_COUNT_EAR += 1
                     cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     drosinessVideoWritter.writeFrames(frame)
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:  
+                    system('clear')
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
-
+                    
                     # Play Music on Separate Thread (in background)  
                     soundThread = SoundThread()
-                    t = threading.Thread(target = soundThread.playSound)
-                    t.start()
-                    
+                    music = threading.Thread(target = soundThread.playSound)
+                    print('Play music')
+                    music.start()
+                                        
                     if kwargs['isConnected']:
-                        print("Connect")
+                        print('SEND TO SERVER')
                         SocketLocal.sendAlertToServer('Drowsiness', sendTime)
                     drosinessVideoWritter.releaseVideo()
                     FRAME_COUNT_EAR = 0
@@ -203,34 +220,64 @@ def detecteAlert(**kwargs):
             else:
                 FRAME_COUNT_DISTR += 1
                 noeyesVideoWritter.writeFrames(frame)
-            if FRAME_COUNT_DISTR >= NOEYES_FRAMES:
-                FRAME_COUNT_DISTR = 0
-                print('[DETECTION INFOR]: NO EYES !')
-                if kwargs['isConnected']:
-                    print("Connect")
-                    SocketLocal.sendAlertToServer('Noeye', sendTime)
                 
+            if FRAME_COUNT_DISTR >= NOEYES_FRAMES:
+                system('clear')
                 # Play Music on Separate Thread (in background)  
                 soundThread = SoundThread()
-                t = threading.Thread(target = soundThread.playSound)
-                t.start()
-
+                music = threading.Thread(target = soundThread.playSound)
+                music.start()
+                
+                FRAME_COUNT_DISTR = 0
                 noeyesVideoWritter.releaseVideo()
                 Utils.setReleaseContext(noeyesReleaseContext, 'False')
-                        
-    if kwargs['isConnected']:
-        kwargs['ws'].close()
-
+                system('clear')
+                print('[DETECTION INFOR]: NO EYES !')
+                if kwargs['isConnected']:
+                    SocketLocal.sendAlertToServer('Noeye', sendTime)
+        
+    # connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
+        
+def on_close(ws):
+    global threads, disConnected
+    disConnected = True
+    for thread in threads: 
+        thread.join()
+        
+    disConnected = False
+    detecteAlert(vs = vs, 
+                detector = detector, 
+                predictor = predictor, 
+                sensorCount = sensorCount,
+                ws = ws, 
+                isConnected = False,
+                isOffice = False)
+    
+    
+    # print('CAN NOT CONNECT TO SERVER')
+    # def run(*args):
+    #     print('[INFOR]: ' + str(threading.get_ident()))
+    #     detecteAlert(vs = vs, 
+    #                 detector = detector, 
+    #                 predictor = predictor, 
+    #                 sensorCount = sensorCount,
+    #                 ws = ws, 
+    #                 isConnected = False,
+    #                 isOffice = False)
+    # newThread = threading.Thread(target = run, daemon=True)
+    # threads.append(newThread)
+    # newThread.start()
+        
 def on_message(ws, message):
     # Load message data
+    system('clear')
     messageData = json.loads(message)
-    print(messageData)
+    # print(messageData)
     
     # Get message when server wanna get drowsiness video
     if messageData.get('piDeviceID') == str(RASPBERRY_ID):
         alertTime = Datetime.getDateNameFormat2(messageData['time-occured'])
         alertType = messageData['alertType'].lower()
-        print(alertType)
         try:
             frames = VideoUtils.getRequestVideo(alertTime, alertType)    
         except Exception as err:
@@ -252,12 +299,16 @@ def on_message(ws, message):
     
     # Get determine roomCode  
     if int(messageData['piDeviceID']) == RASPBERRY_ID:
+        global companyRoomCode
         if messageData.get('command') == 'getRoomCode': #messageData.get('command') == 'getRoomCode'
-            print('GET MESSAGE')
-            # Update roomCode JSON fil
-            # ws.close()
             companyRoomCode = messageData['roomCode']
-            time.sleep(2.0)
+            ws.keep_running = False
+            global threads, disConnected
+            disConnected = True
+            for thread in threads: 
+                thread.join()
+            disConnected = False
+            time.sleep(1.0)
             try:
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
             except Exception as err:
@@ -266,39 +317,47 @@ def on_message(ws, message):
 def on_error(ws, error):
     print('[SOCKET ERROR]: ' + error)
 
-def on_close(ws):
-    print('[SOCKET INFORMATION]: Can not connect to Websocket ...')
-    detecteAlert(vs = vs, 
-                detector = detector, 
-                predictor = predictor, 
-                sensorCount = sensorCount,
-                ws = ws, 
-                isConnected = False)
-
 def on_open(ws):
-    def run(*args):
-        print('[SOCKET INFORMATION]: Connect to Websocket ...')
-        if companyRoomCode == 'general':
-            requestDeterminedRoomCode(ws)
+    global threads
+    if companyRoomCode == 'general':
+        print('Here 1')
+        requestDeterminedRoomCode(ws)
+        print('Here 2')
+        def run(*args):
             detecteAlert(vs = vs, 
                         detector = detector, 
                         predictor = predictor, 
                         sensorCount = sensorCount,
                         ws = ws, 
-                        isConnected = True)     
-        else:
+                        isConnected = True,
+                        isOffice = False)
+        newThread = threading.Thread(target = run, daemon=True)
+        threads.append(newThread)
+        newThread.start()
+    else:
+        def run(*args):
             detecteAlert(vs = vs, 
                         detector = detector, 
                         predictor = predictor, 
                         sensorCount = sensorCount,
                         ws = ws, 
-                        isConnected = True)  
-    thread.start_new_thread(run, ()) 
+                        isConnected = True,
+                        isOffice = False)
+        newThread = threading.Thread(target = run, daemon=True)
+        threads.append(newThread)
+        newThread.start()
         
 if __name__ == '__main__':
-    try:
-        print(companyRoomCode)
-        connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
-    except Exception as err:
-        print('[WEBSOCKET INFOR]: ' + str(err))
-        
+    if isOffice:
+        detecteAlert( 
+            detector = detector, 
+            predictor = predictor, 
+            sensorCount = sensorCount,
+            # ws = ws, 
+            isConnected = False,
+            isOffice = True)
+    else:
+        try:
+            connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
+        except Exception as err:
+            print('[WEBSOCKET INFOR]: ' + str(err))
