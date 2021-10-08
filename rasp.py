@@ -4,7 +4,6 @@ import time
 import json
 import dlib
 import cv2
-import sys
 import imutils
 import os
 from threading import Thread
@@ -23,7 +22,7 @@ from imutils.video import VideoStream
 from datetime import datetime
 from os import system, name
 import signal
-# import wiringpi as wiringpi
+import wiringpi as wiringpi
 
 # Intialize files,raspberry infor, and folders
 Datetime = DateTime()
@@ -56,8 +55,8 @@ predictor = dlib.shape_predictor(MODEL_PATH)
 print('[INFOR]: Predictor is ready!')
 
 # MQ3 sensor intialize
-# wiringpi.wiringPiSetupGpio()
-# wiringpi.pinMode(25, 0)
+wiringpi.wiringPiSetupGpio()
+wiringpi.pinMode(25, 0)
 sensorCount = 0
 print('[INFOR]: MQ3 SENSOR is ready!')
 
@@ -84,11 +83,12 @@ def connectWebsocket(url):
 def requestDeterminedRoomCode(ws):
     SocketLocal = Socket(ws)
     SocketLocal.getDeterminedRoomCode(RASPBERRY_ID)    
-    time.sleep(0.5)
+    # time.sleep(0.5)
     
 def detecteAlert(**kwargs):
     # Intialize saving video path
     global disConnected
+    global sensorCount
     if kwargs['isConnected']:
         SocketLocal = Socket(kwargs['ws'])
     
@@ -130,17 +130,17 @@ def detecteAlert(**kwargs):
         # system('clear')
         # print('[INFOR]: ' + str(threading.get_ident()))
         # Alcolho detection
-        # my_input=wiringpi.digitalRead(25)
-        # if(my_input):
-        #   pass
-        # else:
-        #  sensorCount += 1
-        # if sensorCount == 5:
-        #  sendTime = str(datetime.now())
-        #  print('[DETECTION INFOR]: Alcohol Detected')
+        my_input=wiringpi.digitalRead(25)
+        if(my_input):
+            pass
+        else:
+            sensorCount += 1
+        if sensorCount == 5:
+            sendTime = str(datetime.now())
+            print('[DETECTION INFOR]: Alcohol Detected')
         #  if isConnected:
         #   Socket.sendAlertToServer('Alcohol', sendTime)
-        # sensorCount = 0
+            sensorCount = 0
         # Try to connect to Webserver
         if not kwargs['isConnected'] and not kwargs['isOffice']:
             reconnectFrameCount += 1
@@ -256,21 +256,6 @@ def on_close(ws):
                 ws = ws, 
                 isConnected = False,
                 isOffice = False)
-    
-    
-    # print('CAN NOT CONNECT TO SERVER')
-    # def run(*args):
-    #     print('[INFOR]: ' + str(threading.get_ident()))
-    #     detecteAlert(vs = vs, 
-    #                 detector = detector, 
-    #                 predictor = predictor, 
-    #                 sensorCount = sensorCount,
-    #                 ws = ws, 
-    #                 isConnected = False,
-    #                 isOffice = False)
-    # newThread = threading.Thread(target = run, daemon=True)
-    # threads.append(newThread)
-    # newThread.start()
         
 def on_message(ws, message):
     # Load message data
@@ -312,7 +297,6 @@ def on_message(ws, message):
             for thread in threads: 
                 thread.join()
             disConnected = False
-            # time.sleep(1.0)
             try:
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
             except Exception as err:
@@ -355,7 +339,6 @@ if __name__ == '__main__':
             detector = detector, 
             predictor = predictor, 
             sensorCount = sensorCount,
-            # ws = ws, 
             isConnected = False,
             isOffice = True)
     else:
