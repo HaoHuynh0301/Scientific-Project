@@ -4,7 +4,9 @@ import time
 import json
 import dlib
 import cv2
+import sys
 import imutils
+import os
 from threading import Thread
 import threading
 try:
@@ -31,14 +33,15 @@ RASPBERRY_ID = 17
 threads = []
 
 # http://0dd9113bd398.ngrok.io/
-SERVER_ID = '127.0.0.1:8000'
+SERVER_ID = '192.168.1.5:8000'
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 DROWSINESS_VIDEO_PATH = 'media/detail/drowsiness/drowsiness'
 NOEYES_VIDEO_PATH = 'media/detail/noeye/noeye'
 GENERAL_VIDEO_FILE_NAME = 'media/general/rasp_'
-generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '.mp4'
+generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '.avi'
 generalVideo = VideoUtils(generalVideoPath)
-vs = cv2.VideoCapture(0)
+# vs = cv2.VideoCapture(0)
+vs = VideoStream(usePiCamera=True).start()
 
 # Opening JSON file, and return JSON data
 companyRoomCode = 'general'
@@ -62,9 +65,10 @@ print('[INFOR]: MQ3 SENSOR is ready!')
 def handlerSignal(signum, frame):
     res = input('Ctrl-c was pressed. Do you really want to exit? y/n ')
     if res == 'y':
+        print('ok')
         generalVideo.releaseVideo()
-        system('clear')
-        exit(1)
+        # system('clear')
+        os._exit(0)
 signal.signal(signal.SIGINT, handlerSignal)
 
 def connectWebsocket(url):
@@ -120,7 +124,7 @@ def detecteAlert(**kwargs):
     #     disConnected = False
         
     while True:
-        time.sleep(0.4)
+        # print('1')
         if disConnected:
             break
         # system('clear')
@@ -144,7 +148,7 @@ def detecteAlert(**kwargs):
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
                 
         #Get frames from camera      
-        ret, frame = vs.read()
+        frame = vs.read()
         frame = imutils.resize(frame, width=400)
         generalVideo.writeFrames(frame)
         (h, w) = frame.shape[:2]
@@ -174,7 +178,7 @@ def detecteAlert(**kwargs):
             if EAR < EAR_THRESHOLD:
                 if FRAME_COUNT_EAR == 0:
                     saveTime, sendTime = Datetime.getDateNameFormat()
-                    drosinessVideoWritter = VideoUtils(DROWSINESS_VIDEO_PATH + saveTime + '.mp4')
+                    drosinessVideoWritter = VideoUtils(DROWSINESS_VIDEO_PATH + saveTime + '.avi')
                     FRAME_COUNT_EAR += 1
                     drowsinessReleaseContext['isCreated'] = 'True'
                     drowsinessReleaseContext['videoPath'] = str(drosinessVideoWritter.videoPath)
@@ -184,14 +188,14 @@ def detecteAlert(**kwargs):
                     cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
                     drosinessVideoWritter.writeFrames(frame)
                 if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:  
-                    system('clear')
+                    # system('clear')
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
                     
                     # Play Music on Separate Thread (in background)  
-                    soundThread = SoundThread()
-                    music = threading.Thread(target = soundThread.playSound)
-                    print('Play music')
-                    music.start()
+                    # soundThread = SoundThread()
+                    # music = threading.Thread(target = soundThread.playSound)
+                    # print('Play music')
+                    # music.start()
                                         
                     if kwargs['isConnected']:
                         print('SEND TO SERVER')
@@ -213,7 +217,7 @@ def detecteAlert(**kwargs):
         else:
             if FRAME_COUNT_DISTR == 0:
                 saveTime, sendTime = Datetime.getDateNameFormat()
-                noeyesVideoWritter = VideoUtils(NOEYES_VIDEO_PATH + saveTime + '.mp4')
+                noeyesVideoWritter = VideoUtils(NOEYES_VIDEO_PATH + saveTime + '.avi')
                 FRAME_COUNT_DISTR += 1
                 noeyesReleaseContext['isCreated'] = 'True'
                 noeyesReleaseContext['videoPath'] = str(noeyesVideoWritter.videoPath)
@@ -222,16 +226,16 @@ def detecteAlert(**kwargs):
                 noeyesVideoWritter.writeFrames(frame)
                 
             if FRAME_COUNT_DISTR >= NOEYES_FRAMES:
-                system('clear')
+                # system('clear')
                 # Play Music on Separate Thread (in background)  
-                soundThread = SoundThread()
-                music = threading.Thread(target = soundThread.playSound)
-                music.start()
+                # soundThread = SoundThread()
+                # music = threading.Thread(target = soundThread.playSound)
+                # music.start()
                 
                 FRAME_COUNT_DISTR = 0
                 noeyesVideoWritter.releaseVideo()
                 Utils.setReleaseContext(noeyesReleaseContext, 'False')
-                system('clear')
+                # system('clear')
                 print('[DETECTION INFOR]: NO EYES !')
                 if kwargs['isConnected']:
                     SocketLocal.sendAlertToServer('Noeye', sendTime)
@@ -270,7 +274,7 @@ def on_close(ws):
         
 def on_message(ws, message):
     # Load message data
-    system('clear')
+    # system('clear')
     messageData = json.loads(message)
     # print(messageData)
     
@@ -308,7 +312,7 @@ def on_message(ws, message):
             for thread in threads: 
                 thread.join()
             disConnected = False
-            time.sleep(1.0)
+            # time.sleep(1.0)
             try:
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
             except Exception as err:
@@ -320,9 +324,7 @@ def on_error(ws, error):
 def on_open(ws):
     global threads
     if companyRoomCode == 'general':
-        print('Here 1')
         requestDeterminedRoomCode(ws)
-        print('Here 2')
         def run(*args):
             detecteAlert(vs = vs, 
                         detector = detector, 
