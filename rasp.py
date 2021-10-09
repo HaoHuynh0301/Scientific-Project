@@ -17,14 +17,18 @@ from libs.videoutils import VideoUtils
 from libs.datetime import DateTime
 from libs.socket import Socket
 from libs.utils import Utils, SoundThread
+from libs.soundplayer import SoundPlayer
 from imutils import face_utils
 from imutils.video import VideoStream
 from datetime import datetime
 from os import system, name
 import signal
 import wiringpi as wiringpi
+from pygame import mixer
+
 
 # Intialize files,raspberry infor, and folders
+# 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
 Datetime = DateTime()
 HOSTNAME = socket.gethostname()
 IP_ADDRESS = socket.gethostbyname(HOSTNAME)
@@ -39,8 +43,9 @@ NOEYES_VIDEO_PATH = 'media/detail/noeye/noeye'
 GENERAL_VIDEO_FILE_NAME = 'media/general/rasp_'
 generalVideoPath = GENERAL_VIDEO_FILE_NAME + str(datetime.now()) + '.avi'
 generalVideo = VideoUtils(generalVideoPath)
-# vs = cv2.VideoCapture(0)
-vs = VideoStream(usePiCamera=True).start()
+vs = cv2.VideoCapture(0)
+# vs = VideoStream(usePiCamera=True).start()
+# p = SoundPlayer("media/sound/sound-alert-[AudioTrimmer.com]-[AudioTrimmer.com].mp3", 1)  
 
 # Opening JSON file, and return JSON data
 companyRoomCode = 'general'
@@ -60,13 +65,13 @@ wiringpi.pinMode(25, 0)
 sensorCount = 0
 print('[INFOR]: MQ3 SENSOR is ready!')
 
+
 # Ctrl-C pressed handle
 def handlerSignal(signum, frame):
     res = input('Ctrl-c was pressed. Do you really want to exit? y/n ')
     if res == 'y':
-        print('ok')
         generalVideo.releaseVideo()
-        # system('clear')
+        system('clear')
         os._exit(0)
 signal.signal(signal.SIGINT, handlerSignal)
 
@@ -124,7 +129,6 @@ def detecteAlert(**kwargs):
     #     disConnected = False
         
     while True:
-        # print('1')
         if disConnected:
             break
         # system('clear')
@@ -138,8 +142,10 @@ def detecteAlert(**kwargs):
         if sensorCount == 5:
             sendTime = str(datetime.now())
             print('[DETECTION INFOR]: Alcohol Detected')
-        #  if isConnected:
-        #   Socket.sendAlertToServer('Alcohol', sendTime)
+            if kwargs['isConnected']:
+                saveTime, sendTime = Datetime.getDateNameFormat()
+                #SocketLocal.sendAlertToServer('Drowsiness', sendTime)
+                SocketLocal.sendAlertToServer('Alcohol', sendTime)
             sensorCount = 0
         # Try to connect to Webserver
         if not kwargs['isConnected'] and not kwargs['isOffice']:
@@ -148,7 +154,7 @@ def detecteAlert(**kwargs):
                 connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
                 
         #Get frames from camera      
-        frame = vs.read()
+        ret, frame = vs.read()
         frame = imutils.resize(frame, width=400)
         generalVideo.writeFrames(frame)
         (h, w) = frame.shape[:2]
@@ -176,6 +182,7 @@ def detecteAlert(**kwargs):
             cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
 
             if EAR < EAR_THRESHOLD:
+                print('.')
                 if FRAME_COUNT_EAR == 0:
                     saveTime, sendTime = Datetime.getDateNameFormat()
                     drosinessVideoWritter = VideoUtils(DROWSINESS_VIDEO_PATH + saveTime + '.avi')
@@ -192,11 +199,10 @@ def detecteAlert(**kwargs):
                     print('[DETECTION INFOR]: DROWSINESS DETECTED !')
                     
                     # Play Music on Separate Thread (in background)  
-                    # soundThread = SoundThread()
-                    # music = threading.Thread(target = soundThread.playSound)
-                    # print('Play music')
-                    # music.start()
-                                        
+                    sound = mixer.Sound("media/sound/sound-alert-[AudioTrimmer.com]-[AudioTrimmer.com].wav", 1)        
+                    sound.play()
+                    print("U")
+                                                        
                     if kwargs['isConnected']:
                         print('SEND TO SERVER')
                         SocketLocal.sendAlertToServer('Drowsiness', sendTime)
@@ -227,10 +233,10 @@ def detecteAlert(**kwargs):
                 
             if FRAME_COUNT_DISTR >= NOEYES_FRAMES:
                 # system('clear')
-                # Play Music on Separate Thread (in background)  
-                # soundThread = SoundThread()
-                # music = threading.Thread(target = soundThread.playSound)
-                # music.start()
+                # Play Music on Separate Thread (in background)
+                #playsound("media/sound/sound-alert-[AudioTrimmer.com]-[AudioTrimmer.com].mp3")
+                p = SoundPlayer("media/sound/sound-alert-[AudioTrimmer.com]-[AudioTrimmer.com].wav", 1)
+                p.play(0.5)
                 
                 FRAME_COUNT_DISTR = 0
                 noeyesVideoWritter.releaseVideo()
@@ -239,8 +245,7 @@ def detecteAlert(**kwargs):
                 print('[DETECTION INFOR]: NO EYES !')
                 if kwargs['isConnected']:
                     SocketLocal.sendAlertToServer('Noeye', sendTime)
-        
-    # connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
+            # connectWebsocket(f'ws://{SERVER_ID}/ws/realtime/{companyRoomCode}/{RASPBERRY_ID}/')
         
 def on_close(ws):
     global threads, disConnected
