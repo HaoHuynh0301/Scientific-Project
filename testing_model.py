@@ -26,7 +26,7 @@ import subprocess
 
 EAR_THRESHOLD = 0.2
 
-CONSECUTIVE_FRAMES = 20
+CONSECUTIVE_FRAMES = 25
 
 MODEL_PATH = 'model/custom_model_20_6_2021.dat'
 
@@ -42,24 +42,20 @@ print("[INFO] Loading the predictor ...")
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor(MODEL_PATH)
 
-cap = cv2.VideoCapture(0) # video source here
+vs = cv2.VideoCapture(0)
+vs.set(3, 160)
+vs.set(4, 120)
 
 print("[INFO] Predictor is ready!")
 
 while True:
-    ret, frame = cap.read()
-
-    cv2.putText(frame, "PRESS 'q' TO EXIT", (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 3)
-
-    frame = imutils.resize(frame, width=400)
+    ret, frame = vs.read()
     (h, w) = frame.shape[:2]
     rects = detector(frame, 0)
     
     if len(rects) > 0:
         rect = get_max_area_rect(rects)
         (x, y, w, h) = face_utils.rect_to_bb(rect)
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         shape = predictor(frame, rect)
         shape = face_utils.shape_to_np(shape)
 
@@ -73,14 +69,9 @@ while True:
 
         leftEyeHull = cv2.convexHull(leftEye)
         rightEyeHull = cv2.convexHull(rightEye)
-        
-        cv2.drawContours(frame, [leftEyeHull], -1, (0, 255, 0), 1)
-        cv2.drawContours(frame, [rightEyeHull], -1, (0, 255, 0), 1)
 
         if EAR < EAR_THRESHOLD:
             FRAME_COUNT_EAR += 1
-            cv2.drawContours(frame, [leftEyeHull], -1, (0, 0, 255), 1)
-            cv2.drawContours(frame, [rightEyeHull], -1, (0, 0, 255), 1)
             if FRAME_COUNT_EAR >= CONSECUTIVE_FRAMES:
                 cv2.putText(frame, "DROWSINESS ALERT!", (270, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)

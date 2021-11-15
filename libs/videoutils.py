@@ -18,7 +18,7 @@ class VideoUtils:
             self.videoWritter = self.createVideo()
             
     def writeFrames(self, frame):
-        frame = cv2.resize(frame, (225,300))
+        frame = cv2.resize(frame, (225,320))
         self.videoWritter.write(frame)
         
     def releaseVideo(self):
@@ -26,7 +26,7 @@ class VideoUtils:
         
     def createVideo(self):
         fps = 30.0
-        size = (225,300)
+        size = (225,320)
         writter = cv2.VideoWriter(self.videoPath, cv2.VideoWriter_fourcc(*'XVID'), fps, size)
         return writter
     
@@ -41,7 +41,7 @@ class VideoUtils:
         sendingFrameCount = 0     
         while(cap.isOpened()):
             sendingFrameCount += 1
-            if sendingFrameCount == 5: break
+            if sendingFrameCount == 4: break
             ret, frame = cap.read()
             if ret == False:
                 break
